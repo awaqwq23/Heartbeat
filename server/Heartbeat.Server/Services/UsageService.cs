@@ -13,7 +13,7 @@ namespace Heartbeat.Server.Services
         /// <summary>
         /// 合并容差：同设备同应用首尾相连在此范围内的记录合并（处理客户端上传截断）
         /// </summary>
-        private static readonly TimeSpan MergeTolerance = TimeSpan.FromSeconds(5);
+        private static readonly TimeSpan MergeTolerance = TimeSpan.FromSeconds(1);
 
         /// <summary>
         /// 时间校验容差：客户端时间与服务端时间偏差不得超过此值
@@ -57,44 +57,43 @@ namespace Heartbeat.Server.Services
             }
             await _db.SaveChangesAsync(); // 保存以获取新 App 的 Id
 
-            // 按 AppName 分组，对每组尝试与数据库中最新记录合并
-            foreach (var group in validUsages.GroupBy(u => u.AppName))
+            if (validUsages.Count == 0) return;
+
+            var first = validUsages[0];
+            var firstAppId = existingApps[first.AppName].Id;
+            var firstMerged = false;
+
+            // 查该设备+同应用的最新记录，利用 (DeviceId, AppId, EndTime) 索引
+            var lastRecord = await _db.AppUsages
+                .Where(x => x.DeviceId == deviceId && x.AppId == firstAppId)
+                .OrderByDescending(x => x.EndTime)
+                .FirstOrDefaultAsync();
+
+            if (lastRecord != null
+                && first.StartTime >= lastRecord.EndTime
+                && first.StartTime <= lastRecord.EndTime + MergeTolerance)
             {
-                var appId = existingApps[group.Key].Id;
-
-                // 查找该设备+应用的最新记录
-                var existing = await _db.AppUsages
-                    .Where(x => x.DeviceId == deviceId && x.AppId == appId)
-                    .OrderByDescending(x => x.EndTime)
-                    .FirstOrDefaultAsync();
-
-                foreach (var u in group)
+                // 批次首条与数据库最新记录同应用且首尾相连 → 上传截断，合并
+                if (first.EndTime > lastRecord.EndTime)
                 {
-                    if (existing != null
-                        && u.StartTime >= existing.EndTime
-                        && u.StartTime <= existing.EndTime + MergeTolerance)
-                    {
-                        // 首尾相连，合并（扩展结束时间）
-                        if (u.EndTime > existing.EndTime)
-                        {
-                            existing.EndTime = u.EndTime;
-                            existing.DurationSeconds = (int)(existing.EndTime - existing.StartTime).TotalSeconds;
-                        }
-                    }
-                    else
-                    {
-                        // 插入新记录
-                        existing = new AppUsage
-                        {
-                            DeviceId = deviceId,
-                            AppId = appId,
-                            StartTime = u.StartTime,
-                            EndTime = u.EndTime,
-                            DurationSeconds = (int)(u.EndTime - u.StartTime).TotalSeconds
-                        };
-                        _db.AppUsages.Add(existing);
-                    }
+                    lastRecord.EndTime = first.EndTime;
+                    lastRecord.DurationSeconds = (int)(lastRecord.EndTime - lastRecord.StartTime).TotalSeconds;
                 }
+                firstMerged = true;
+            }
+
+            // 其余记录直接插入
+            foreach (var u in validUsages.Skip(firstMerged ? 1 : 0))
+            {
+                var appId = existingApps[u.AppName].Id;
+                _db.AppUsages.Add(new AppUsage
+                {
+                    DeviceId = deviceId,
+                    AppId = appId,
+                    StartTime = u.StartTime,
+                    EndTime = u.EndTime,
+                    DurationSeconds = (int)(u.EndTime - u.StartTime).TotalSeconds
+                });
             }
 
             await _db.SaveChangesAsync();
