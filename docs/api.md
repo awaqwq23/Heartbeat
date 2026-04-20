@@ -1,6 +1,12 @@
 
 # Heartbeat API 接口文档
 
+API Client 使用 NSwag 自动生成
+
+``` sh
+nswag openapi2tsclient /input:http://localhost:5023/openapi/v1.json /output:frontend/src/api/client.ts
+```
+
 基础路径：`/api/v1`
 
 > 带有 `[Auth]` 标记的接口，代表需要在 HTTP Header 中携带身份验证，格式为：
