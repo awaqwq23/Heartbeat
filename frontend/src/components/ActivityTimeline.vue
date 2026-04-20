@@ -507,6 +507,19 @@ const minimapActivities = computed(() => {
   z-index: 1;
 }
 
+/* Two-column mode: more vertical space for timeline */
+@media (min-width: 900px) {
+  .timeline-rows {
+    max-height: 320px; /* ~8 rows */
+  }
+}
+
+@media (min-width: 1200px) {
+  .timeline-rows {
+    max-height: 400px; /* ~10 rows */
+  }
+}
+
 /* Custom Scrollbar for rows */
 .timeline-row {
   display: flex;

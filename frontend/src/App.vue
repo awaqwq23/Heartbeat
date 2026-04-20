@@ -32,11 +32,13 @@ const {
 <template>
   <div class="dashboard">
     <header class="header">
-      <div class="logo">
-        <span class="status-dot" :class="{ alive: isAlive }"></span>
-        <span>-QuQ-</span>
+      <div class="header-left">
+        <div class="logo">
+          <span class="status-dot" :class="{ alive: isAlive }"></span>
+          <span>-QuQ-</span>
+        </div>
+        <span class="header-subtitle">你在视奸我，对吧！</span>
       </div>
-      <span class="card-label">你在视奸我，对吧！</span>
       <div class="controls">
         <span class="tz-badge" :title="'数据按浏览器所在时区的日期展示，不代表设备所在时区'">{{ timezoneLabel }}</span>
         <select v-model="selectedDevice" class="ctl">
@@ -47,7 +49,7 @@ const {
     </header>
 
     <main>
-      <!-- 状态卡片 -->
+      <!-- 状态卡片 - 始终全宽 -->
       <StatusCards 
         :isToday="isToday" 
         :isAlive="isAlive" 
@@ -56,34 +58,39 @@ const {
         :totalSeconds="totalSeconds" 
       />
 
-      <!-- 当前使用 -->
-      <CurrentAppPanel 
-        :isToday="isToday" 
-        :isAlive="isAlive" 
-        :currentApp="currentApp" 
-        :currentAppId="currentAppId" 
-      />
+      <!-- 主体双列布局区域 -->
+      <div class="main-grid">
+        <!-- 左列：当前使用 + 活动时间线 -->
+        <div class="col-main">
+          <CurrentAppPanel 
+            :isToday="isToday" 
+            :isAlive="isAlive" 
+            :currentApp="currentApp" 
+            :currentAppId="currentAppId" 
+          />
 
-      <!-- 活动时间线 -->
-      <ActivityTimeline
-        :activeHours="activeHours"
-        :usageData="usageData"
-        :appNameMap="appNameMap"
-        :selectedDate="selectedDate"
-        :isToday="isToday"
-      />
+          <ActivityTimeline
+            :activeHours="activeHours"
+            :usageData="usageData"
+            :appNameMap="appNameMap"
+            :selectedDate="selectedDate"
+            :isToday="isToday"
+          />
+        </div>
 
-      <!-- 今日应用时长排行 -->
-      <TodayRanking 
-        :appSummaries="appSummaries" 
-        :maxSeconds="maxSeconds" 
-      />
+        <!-- 右列：排行 + 本周使用 -->
+        <div class="col-aside">
+          <TodayRanking 
+            :appSummaries="appSummaries" 
+            :maxSeconds="maxSeconds" 
+          />
 
-      <!-- 本周应用使用 -->
-      <WeeklyChart 
-        :weeklyAppSummaries="weeklyAppSummaries" 
-        :weeklyTotalSeconds="weeklyTotalSeconds" 
-      />
+          <WeeklyChart 
+            :weeklyAppSummaries="weeklyAppSummaries" 
+            :weeklyTotalSeconds="weeklyTotalSeconds" 
+          />
+        </div>
+      </div>
     </main>
 
     <div v-if="loading" class="loading-bar"></div>
@@ -91,46 +98,69 @@ const {
 </template>
 
 <style scoped>
+/* ===========================================
+   Base — fluid width with clamp
+   =========================================== */
 .dashboard {
-  max-width: 860px;
+  /* Fluid: min 100%, preferred 90vw, max 1400px */
+  width: min(100%, 1400px);
   margin: 0 auto;
-  padding: 2rem 1.5rem;
+  padding: clamp(1rem, 3vw, 2.5rem) clamp(0.75rem, 3vw, 2.5rem);
   position: relative;
 }
 
-/* Header */
+/* ===========================================
+   Header — responsive wrap
+   =========================================== */
 .header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  gap: 0.75rem 1rem;
+  margin-bottom: clamp(1.25rem, 3vw, 2rem);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .logo {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  font-size: 1.5rem;
+  font-size: clamp(1.15rem, 2.5vw, 1.5rem);
   font-weight: 700;
   letter-spacing: -0.02em;
   user-select: none;
+  white-space: nowrap;
+}
+
+.header-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-dim);
 }
 
 .controls {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .ctl {
   background: var(--bg-card);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 0.65rem;
   border-radius: 6px;
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   outline: none;
   cursor: pointer;
   transition: border-color 0.2s;
+  min-width: 0;
 }
 
 .ctl:focus {
@@ -143,15 +173,32 @@ const {
   background: var(--bg-card);
   border: 1px solid var(--border);
   color: var(--text-dim);
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 0.65rem;
   border-radius: 6px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-family: var(--font-mono);
   cursor: help;
   user-select: none;
+  white-space: nowrap;
 }
 
-/* Loading bar */
+/* ===========================================
+   Main Grid — single column by default
+   =========================================== */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+
+.col-main,
+.col-aside {
+  min-width: 0; /* prevent flex/grid overflow */
+}
+
+/* ===========================================
+   Loading bar
+   =========================================== */
 .loading-bar {
   position: fixed;
   top: 0;
@@ -163,22 +210,54 @@ const {
 }
 
 @keyframes loading {
-  0% { transform: scaleX(0); transform-origin: left; }
-  50% { transform: scaleX(1); transform-origin: left; }
-  51% { transform-origin: right; }
+  0%   { transform: scaleX(0); transform-origin: left; }
+  50%  { transform: scaleX(1); transform-origin: left; }
+  51%  { transform-origin: right; }
   100% { transform: scaleX(0); transform-origin: right; }
 }
 
-/* Responsive */
+/* ===========================================
+   Breakpoint: ≥900px — two columns kick in
+   =========================================== */
+@media (min-width: 900px) {
+  .main-grid {
+    grid-template-columns: 1fr 340px;
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  .col-aside {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+/* ===========================================
+   Breakpoint: ≥1200px — wider aside column
+   =========================================== */
+@media (min-width: 1200px) {
+  .main-grid {
+    grid-template-columns: 1fr 420px;
+    gap: 1.5rem;
+  }
+}
+
+/* ===========================================
+   Breakpoint: ≤640px — mobile compact
+   =========================================== */
 @media (max-width: 640px) {
   .header {
     flex-direction: column;
-    gap: 1rem;
     align-items: flex-start;
   }
 
-  .dashboard {
-    padding: 1.5rem 1rem;
+  .controls {
+    width: 100%;
+  }
+
+  .ctl {
+    flex: 1;
+    text-align: center;
   }
 }
 </style>

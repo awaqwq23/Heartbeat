@@ -243,9 +243,42 @@ const donutSegments = computed(() => {
 }
 
 .empty { text-align: center; padding: 2rem; color: var(--text-dim); font-size: 0.9rem; }
+
+/* When in sidebar (≥900px), stack vertically since container is narrow */
+@media (min-width: 900px) {
+  .weekly-chart {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .donut-wrapper {
+    width: 170px;
+    height: 170px;
+  }
+
+  .donut-legend {
+    width: 100%;
+    max-height: 170px;
+  }
+}
+
+/* When window is super wide, sidebar has more room — bigger donut */
+@media (min-width: 1200px) {
+  .donut-wrapper {
+    width: 190px;
+    height: 190px;
+  }
+
+  .donut-legend {
+    max-height: 200px;
+  }
+}
+
+/* Mobile: stack */
 @media (max-width: 640px) {
   .weekly-chart {
     flex-direction: column;
+    align-items: center;
   }
 }
 </style>

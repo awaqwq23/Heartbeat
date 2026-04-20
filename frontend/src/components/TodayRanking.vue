@@ -52,4 +52,17 @@ defineProps<{
 .rank-dur { font-family: var(--font-mono); color: var(--text-dim); font-size: 0.8rem; }
 .bar-bg { height: 4px; background: rgba(255, 255, 255, 0.05); border-radius: 2px; overflow: hidden; margin-left: 2rem; }
 .bar { height: 100%; background: var(--accent); border-radius: 2px; }
+
+/* Sidebar mode: allow more items */
+@media (min-width: 900px) {
+  .ranking {
+    max-height: 280px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .ranking {
+    max-height: 340px;
+  }
+}
 </style>
