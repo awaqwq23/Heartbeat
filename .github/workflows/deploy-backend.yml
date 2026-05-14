@@ -16,8 +16,12 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+      - name: Install EF Core tools
+        run: dotnet tool install --global dotnet-ef
       - name: Publish
         run: dotnet publish server/Heartbeat.Server/Heartbeat.Server.csproj -c Release -o publish
+      - name: Build migration bundle
+        run: dotnet ef migrations bundle --project server/Heartbeat.Server/Heartbeat.Server.csproj -o publish/efbundle --self-contained --force
       - uses: actions/upload-artifact@v4
         with:
           name: backend-publish
@@ -42,6 +46,17 @@ jobs:
           source: deploy/backend/*
           target: /srv/heartbeat/releases/${{ github.run_id }}
           strip_components: 2
+
+      - name: Apply database migrations
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd /srv/heartbeat/releases/${{ github.run_id }}
+            chmod +x efbundle
+            ./efbundle --connection "${{ secrets.DB_CONNECTION_STRING }}"
 
       - name: Switch & restart
         uses: appleboy/ssh-action@v1
