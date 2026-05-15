@@ -16,11 +16,18 @@ const authHttp = {
       init = { ...init, headers }
     }
 
-    const response = await fetch(url, init)
+    let response = await fetch(url, init)
 
     if (response.status === 401) {
-      authStore.clearAuth()
-      authStore.redirectToLogin()
+      const refreshed = await authStore.tryRefresh()
+      if (refreshed) {
+        const headers = new Headers(init?.headers)
+        headers.set('Authorization', `Bearer ${authStore.token.value}`)
+        response = await fetch(url, { ...init, headers })
+      } else {
+        authStore.clearAuth()
+        authStore.redirectToLogin()
+      }
     }
 
     return response
