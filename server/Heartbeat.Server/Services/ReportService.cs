@@ -8,12 +8,13 @@ namespace Heartbeat.Server.Services
     {
         private readonly AppDbContext _db = db;
 
-        public async Task<DailyReportResponse> GetDailyReportAsync(long? deviceId, DateTimeOffset date)
+        public async Task<DailyReportResponse> GetDailyReportAsync(string ownerId, long? deviceId, DateTimeOffset date)
         {
             var dayStart = new DateTimeOffset(date.Date, date.Offset).UtcDateTime;
             var dayEnd = dayStart.AddDays(1);
 
             var query = _db.AppUsages
+                .Where(x => x.Device.OwnerId == ownerId)
                 .Where(x => x.StartTime >= dayStart && x.StartTime < dayEnd);
 
             if (deviceId.HasValue)
@@ -37,7 +38,7 @@ namespace Heartbeat.Server.Services
             };
         }
 
-        public async Task<WeeklyReportResponse> GetWeeklyReportAsync(long? deviceId, DateTimeOffset date)
+        public async Task<WeeklyReportResponse> GetWeeklyReportAsync(string ownerId, long? deviceId, DateTimeOffset date)
         {
             var d = date.Date;
             var dayOfWeek = d.DayOfWeek;
@@ -49,6 +50,7 @@ namespace Heartbeat.Server.Services
             var weekEnd = new DateTimeOffset(sundayEnd, date.Offset).UtcDateTime;
 
             var query = _db.AppUsages
+                .Where(x => x.Device.OwnerId == ownerId)
                 .Where(x => x.StartTime >= weekStart && x.StartTime < weekEnd);
 
             if (deviceId.HasValue)

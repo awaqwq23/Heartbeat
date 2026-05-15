@@ -20,7 +20,7 @@ namespace Heartbeat.Server.Data
             {
                 entity.HasKey(e => e.Id);
 
-                entity.HasIndex(e => e.DeviceName)
+                entity.HasIndex(e => new { e.OwnerId, e.HardwareId })
                     .IsUnique();
             });
 

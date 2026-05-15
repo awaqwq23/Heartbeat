@@ -16,6 +16,8 @@ builder.Services.AddScoped<UsageService>();
 builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<DeviceService>();
 builder.Services.AddScoped<AppService>();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
 // JWT Bearer authentication - validate tokens issued by AuthService
 // Keys are auto-discovered via {Authority}/.well-known/openid-configuration

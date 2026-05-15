@@ -8,24 +8,28 @@ namespace Heartbeat.Server.Controllers
 {
     [ApiController]
     [Route("api/v1/usage")]
-    public class UsageController(UsageService usageService, DeviceService deviceService) : ControllerBase
+    [Authorize]
+    public class UsageController(UsageService usageService, DeviceService deviceService, ICurrentUserService currentUser) : ControllerBase
     {
         private readonly UsageService _usageService = usageService;
         private readonly DeviceService _deviceService = deviceService;
+        private readonly ICurrentUserService _currentUser = currentUser;
 
-        [Authorize]
         [HttpPost]
         public async Task<IActionResult> Upload([FromBody] UsageUploadRequest request)
         {
             if (request.Usages == null || request.Usages.Count == 0)
                 return BadRequest("Usages cannot be empty.");
 
-            var rawHeader = Request.Headers[DeviceService.DeviceNameHeader].FirstOrDefault();
-            var device = await _deviceService.ResolveByNameAsync(rawHeader);
-            if (device == null)
-                return BadRequest($"Missing {DeviceService.DeviceNameHeader} header.");
+            var userId = _currentUser.GetUserId();
+            var hardwareId = Request.Headers[DeviceService.HardwareIdHeader].FirstOrDefault();
+            var deviceName = Request.Headers[DeviceService.DeviceNameHeader].FirstOrDefault();
 
-            await _usageService.SaveUsageAsync(device.Id, request);
+            if (string.IsNullOrWhiteSpace(hardwareId))
+                return BadRequest($"Missing {DeviceService.HardwareIdHeader} header.");
+
+            var device = await _deviceService.ResolveByHardwareIdAsync(userId, hardwareId, deviceName);
+            await _usageService.SaveUsageAsync(device!.Id, request);
             return Ok();
         }
 
@@ -36,7 +40,8 @@ namespace Heartbeat.Server.Controllers
             [FromQuery] DateTimeOffset? start,
             [FromQuery] DateTimeOffset? end)
         {
-            var result = await _usageService.GetUsageAsync(deviceId, start, end);
+            var userId = _currentUser.GetUserId();
+            var result = await _usageService.GetUsageAsync(userId, deviceId, start, end);
             return Ok(result);
         }
     }

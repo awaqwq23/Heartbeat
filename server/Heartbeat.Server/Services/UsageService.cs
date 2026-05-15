@@ -95,10 +95,11 @@ namespace Heartbeat.Server.Services
             await _db.SaveChangesAsync();
         }
 
-        public async Task<List<AppUsageResponse>> GetUsageAsync(long? deviceId, DateTimeOffset? start, DateTimeOffset? end)
+        public async Task<List<AppUsageResponse>> GetUsageAsync(string ownerId, long? deviceId, DateTimeOffset? start, DateTimeOffset? end)
         {
             var query = _db.AppUsages
                 .Include(x => x.App)
+                .Where(x => x.Device.OwnerId == ownerId)
                 .AsQueryable();
 
             if (deviceId.HasValue)

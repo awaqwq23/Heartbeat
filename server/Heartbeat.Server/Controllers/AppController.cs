@@ -7,6 +7,7 @@ namespace Heartbeat.Server.Controllers
 {
     [ApiController]
     [Route("api/v1/apps")]
+    [Authorize]
     public class AppController(AppService appService) : ControllerBase
     {
         private readonly AppService _appService = appService;
@@ -17,6 +18,7 @@ namespace Heartbeat.Server.Controllers
             return await _appService.GetAllAsync();
         }
 
+        [AllowAnonymous]
         [HttpGet("{appId:long}/icon")]
         public async Task<IActionResult> GetIcon(long appId)
         {

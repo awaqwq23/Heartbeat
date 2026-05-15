@@ -8,12 +8,14 @@ namespace Heartbeat.Server.Services
     public class DeviceService(AppDbContext db)
     {
         public const string DeviceNameHeader = "X-Device-Name";
+        public const string HardwareIdHeader = "X-Hardware-Id";
 
         private readonly AppDbContext _db = db;
 
-        public async Task<List<DeviceInfoResponse>> GetAllAsync()
+        public async Task<List<DeviceInfoResponse>> GetAllAsync(string ownerId)
         {
             return await _db.Devices
+                .Where(x => x.OwnerId == ownerId)
                 .Select(x => new DeviceInfoResponse
                 {
                     Id = x.Id,
@@ -22,10 +24,10 @@ namespace Heartbeat.Server.Services
                 .ToListAsync();
         }
 
-        public async Task<DeviceStatusResponse?> GetStatusAsync(long deviceId)
+        public async Task<DeviceStatusResponse?> GetStatusAsync(long deviceId, string ownerId)
         {
             return await _db.Devices
-                .Where(d => d.Id == deviceId)
+                .Where(d => d.Id == deviceId && d.OwnerId == ownerId)
                 .Select(d => new DeviceStatusResponse
                 {
                     Id = d.Id,
@@ -35,6 +37,27 @@ namespace Heartbeat.Server.Services
                 .FirstOrDefaultAsync();
         }
 
+        public async Task<Device?> ResolveByHardwareIdAsync(string ownerId, string hardwareId, string? deviceName = null)
+        {
+            var device = await _db.Devices
+                .FirstOrDefaultAsync(d => d.OwnerId == ownerId && d.HardwareId == hardwareId);
+
+            if (device == null)
+            {
+                device = new Device
+                {
+                    OwnerId = ownerId,
+                    HardwareId = hardwareId,
+                    DeviceName = deviceName ?? string.Empty
+                };
+                _db.Devices.Add(device);
+                await _db.SaveChangesAsync();
+            }
+
+            return device;
+        }
+
+        [Obsolete("Use ResolveByHardwareIdAsync instead")]
         public async Task<Device?> ResolveByNameAsync(string? rawHeader, bool autoCreate = true)
         {
             if (string.IsNullOrWhiteSpace(rawHeader))

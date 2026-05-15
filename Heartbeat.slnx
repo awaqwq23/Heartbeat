@@ -5,6 +5,7 @@
     <Project Path="desktop/Heartbeat.WPF/Heartbeat.WPF.csproj" />
   </Folder>
   <Folder Name="/server/">
+    <Project Path="server/Heartbeat.Server.Tests/Heartbeat.Server.Tests.csproj" />
     <Project Path="server/Heartbeat.Server/Heartbeat.Server.csproj" />
   </Folder>
   <Folder Name="/shared/">
