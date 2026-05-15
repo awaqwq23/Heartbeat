@@ -10,7 +10,7 @@ namespace Heartbeat.Agent.Http
     /// Caches the token and automatically refreshes it before expiry.
     /// Thread-safe.
     /// </summary>
-    public class TokenManager
+    public class TokenManager : IAccessTokenProvider
     {
         private readonly ConfigManager _configManager;
         private readonly HttpClient _httpClient;

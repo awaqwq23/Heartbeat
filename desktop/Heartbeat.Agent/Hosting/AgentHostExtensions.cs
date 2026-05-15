@@ -36,6 +36,7 @@ namespace Heartbeat.Agent.Hosting
 
             // TokenManager（缓存 AuthService JWT）
             services.AddSingleton<TokenManager>();
+            services.AddSingleton<IAccessTokenProvider>(sp => sp.GetRequiredService<TokenManager>());
 
             // HttpClient for AuthService token exchange (plain, no auth handler)
             services.AddHttpClient("AuthService");

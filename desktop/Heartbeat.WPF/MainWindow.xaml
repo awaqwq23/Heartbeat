@@ -63,7 +63,7 @@
                 <TextBlock Grid.Row="2" Grid.Column="0" Text="API Key" VerticalAlignment="Center" Margin="0,0,12,8"/>
                 <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ApiKey, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
 
-                <TextBlock Grid.Row="3" Grid.Column="0" Text="设备名称" VerticalAlignment="Center" Margin="0,0,12,8"/>
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="设备名称 (可选)" VerticalAlignment="Center" Margin="0,0,12,8"/>
                 <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding DeviceName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"/>
 
                 <TextBlock Grid.Row="4" Grid.Column="0" Text="上传间隔 (分钟)" VerticalAlignment="Center" Margin="0,0,12,8"/>
