@@ -29,7 +29,7 @@ namespace Heartbeat.Server.Controllers
                 return BadRequest($"Missing {DeviceService.HardwareIdHeader} header.");
 
             var device = await _deviceService.ResolveByHardwareIdAsync(userId, hardwareId, deviceName);
-            await _usageService.SaveUsageAsync(device!.Id, request);
+            await _usageService.SaveUsageAsync(device.Id, request);
             return Ok();
         }
 

@@ -37,7 +37,7 @@ namespace Heartbeat.Server.Services
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<Device?> ResolveByHardwareIdAsync(string ownerId, string hardwareId, string? deviceName = null)
+        public async Task<Device> ResolveByHardwareIdAsync(string ownerId, string hardwareId, string? deviceName = null)
         {
             var device = await _db.Devices
                 .FirstOrDefaultAsync(d => d.OwnerId == ownerId && d.HardwareId == hardwareId);
