@@ -1,0 +1,62 @@
+name: Release Desktop
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - rid: win-x64
+            arch: x64
+          - rid: win-arm64
+            arch: arm64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Extract version from tag
+        id: version
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          echo "version=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Publish
+        run: |
+          dotnet publish desktop/Heartbeat.WPF/Heartbeat.WPF.csproj `
+            -c Release `
+            -r ${{ matrix.rid }} `
+            --self-contained `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:Version=${{ steps.version.outputs.version }} `
+            -o publish
+
+      - name: Install Velopack CLI
+        run: dotnet tool install -g vpk
+
+      - name: Pack with Velopack
+        run: |
+          vpk pack `
+            --packId Heartbeat `
+            --packVersion ${{ steps.version.outputs.version }} `
+            --packDir publish `
+            --mainExe Heartbeat.WPF.exe `
+            --runtime ${{ matrix.rid }} `
+            --outputDir releases
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: releases/*
+          tag_name: ${{ github.ref_name }}

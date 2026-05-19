@@ -6,6 +6,7 @@ using Heartbeat.Agent.Configuration;
 using Heartbeat.Agent.Hosting;
 using Heartbeat.Agent.Utils;
 using Heartbeat.WPF.Logging;
+using Heartbeat.WPF.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
@@ -24,6 +25,7 @@ namespace Heartbeat.WPF
         private SingleInstanceGuard? _guard;
         private HwndSource? _msgWindow;
         private uint _taskbarCreatedMsg;
+        private UpdateService? _updateService;
 
         public static RingBufferSink LogSink { get; } = new(200);
         public static ConfigManager ConfigManager { get; private set; } = null!;
@@ -79,6 +81,12 @@ namespace Heartbeat.WPF
             // 启动后台服务
             await _host.StartAsync();
 
+            // 启动自动更新检查
+            _updateService = new UpdateService();
+            _updateService.UpdateAvailable += OnUpdateAvailable;
+            _updateService.UpdateReady += OnUpdateReady;
+            _updateService.Start();
+
             Log.Information("后台服务已启动");
         }
 
@@ -101,6 +109,7 @@ namespace Heartbeat.WPF
 
             _trayIcon.ForceCreate();
             _trayIcon.TrayLeftMouseDown += (_, _) => ShowMainWindow();
+            _trayIcon.TrayBalloonTipClicked += (_, _) => PromptRestart();
         }
 
         private System.Windows.Controls.ContextMenu CreateContextMenu()
@@ -110,6 +119,17 @@ namespace Heartbeat.WPF
             var openItem = new System.Windows.Controls.MenuItem { Header = "打开主界面" };
             openItem.Click += (_, _) => ShowMainWindow();
             menu.Items.Add(openItem);
+
+            var updateItem = new System.Windows.Controls.MenuItem { Header = "检查更新" };
+            updateItem.Click += async (_, _) =>
+            {
+                await (_updateService?.CheckForUpdateAsync() ?? Task.CompletedTask);
+                if (_updateService?.HasPendingUpdate != true)
+                {
+                    _trayIcon?.ShowNotification("Heartbeat", "当前已是最新版本。", H.NotifyIcon.Core.NotificationIcon.Info);
+                }
+            };
+            menu.Items.Add(updateItem);
 
             menu.Items.Add(new System.Windows.Controls.Separator());
 
@@ -193,6 +213,64 @@ namespace Heartbeat.WPF
             Shutdown();
         }
 
+        private void OnUpdateAvailable(string version)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                _trayIcon?.ShowNotification(
+                    "Heartbeat 更新可用",
+                    $"新版本 {version} 已就绪，正在下载...",
+                    H.NotifyIcon.Core.NotificationIcon.Info);
+            });
+
+            _ = _updateService!.DownloadUpdateAsync();
+        }
+
+        private void OnUpdateReady()
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                _trayIcon?.ShowNotification(
+                    "Heartbeat 更新已下载",
+                    "点击此通知立即重启安装，或将在下次启动时自动安装。",
+                    H.NotifyIcon.Core.NotificationIcon.Info);
+            });
+        }
+
+        private void PromptRestart()
+        {
+            if (_updateService?.HasPendingUpdate != true) return;
+
+            var result = MessageBox.Show(
+                $"Heartbeat {_updateService.PendingVersion} 已下载完成。\n\n立即重启安装更新？",
+                "Heartbeat 更新",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                _ = RestartForUpdateAsync();
+            }
+        }
+
+        private async Task RestartForUpdateAsync()
+        {
+            Log.Information("用户确认重启安装更新");
+
+            if (_host != null)
+            {
+                await _host.StopAsync();
+                _host.Dispose();
+                _host = null;
+            }
+
+            _trayIcon?.Dispose();
+            _guard?.Dispose();
+            _guard = null;
+
+            _updateService!.ApplyUpdateAndRestart();
+        }
+
         protected override async void OnExit(ExitEventArgs e)
         {
             if (_host != null)
@@ -203,6 +281,15 @@ namespace Heartbeat.WPF
 
             _msgWindow?.Dispose();
             _trayIcon?.Dispose();
+
+            if (_updateService?.HasPendingUpdate == true)
+            {
+                _guard?.Dispose();
+                _guard = null;
+                _updateService.ApplyUpdateOnExit();
+            }
+
+            _updateService?.Dispose();
             _guard?.Dispose();
             await Log.CloseAndFlushAsync();
 
