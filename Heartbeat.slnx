@@ -11,5 +11,6 @@
   </Folder>
   <Folder Name="/shared/">
     <Project Path="shared/Heartbeat.Core/Heartbeat.Core.csproj" />
+    <Project Path="shared/Heartbeat.Core.Tests/Heartbeat.Core.Tests.csproj" />
   </Folder>
 </Solution>

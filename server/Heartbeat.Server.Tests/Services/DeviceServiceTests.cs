@@ -5,7 +5,7 @@ namespace Heartbeat.Server.Tests.Services
 {
     public class DeviceServiceTests : IDisposable
     {
-        private readonly DbTestFixture _fixture = new();
+        private readonly SqliteFixture _fixture = new();
 
         public void Dispose() => _fixture.Dispose();
 
