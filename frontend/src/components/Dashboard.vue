@@ -1,10 +1,18 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useHeartbeat } from '../composables/useHeartbeat'
+import { authStore } from '../stores/auth'
 import ActivityTimeline from './ActivityTimeline.vue'
 import StatusCards from './StatusCards.vue'
 import CurrentAppPanel from './CurrentAppPanel.vue'
 import TodayRanking from './TodayRanking.vue'
 import WeeklyChart from './WeeklyChart.vue'
+
+const props = defineProps<{ username: string }>()
+
+const isOwnProfile = computed(() =>
+  authStore.isAuthenticated && authStore.username.value === props.username
+)
 
 const {
   devices,
@@ -34,9 +42,8 @@ const {
       <div class="header-left">
         <div class="logo">
           <span class="status-dot" :class="{ alive: isAlive }"></span>
-          <span>-QuQ-</span>
+          <span>{{ username }}</span>
         </div>
-        <span class="header-subtitle">你在视奸我，对吧！</span>
       </div>
       <div class="controls">
         <span class="tz-badge" :title="'数据按浏览器所在时区的日期展示，不代表设备所在时区'">{{ timezoneLabel }}</span>
@@ -44,6 +51,9 @@ const {
           <option v-for="d in devices" :key="d.id" :value="d.id">{{ d.name }}</option>
         </select>
         <input type="date" v-model="selectedDate" class="ctl" />
+        <a v-if="isOwnProfile" href="/heartbeat/settings" class="ctl btn-link">设置</a>
+        <button v-if="authStore.isAuthenticated" class="ctl btn-logout" @click="authStore.logout()">登出</button>
+        <button v-else class="ctl btn-login" @click="authStore.redirectToLogin()">登录</button>
       </div>
     </header>
 
@@ -153,6 +163,39 @@ const {
 
 .ctl:focus {
   border-color: var(--accent);
+}
+
+.btn-logout {
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.btn-logout:hover {
+  color: var(--text);
+}
+
+.btn-login {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.btn-link {
+  text-decoration: none;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+
+.btn-link:hover {
+  color: var(--text);
 }
 
 .tz-badge {
