@@ -1,4 +1,4 @@
-using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using Heartbeat.Server.Services;
 
 namespace Heartbeat.Server.Middleware
@@ -11,7 +11,7 @@ namespace Heartbeat.Server.Middleware
         {
             if (context.User.Identity?.IsAuthenticated == true)
             {
-                var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userId = context.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
                 var username = context.User.FindFirst("preferred_username")?.Value;
 
                 if (!string.IsNullOrEmpty(userId) && !string.IsNullOrEmpty(username))

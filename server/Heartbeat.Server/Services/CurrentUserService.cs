@@ -1,4 +1,4 @@
-using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace Heartbeat.Server.Services
 {
@@ -11,7 +11,7 @@ namespace Heartbeat.Server.Services
     {
         public string GetUserId()
         {
-            var userId = httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = httpContextAccessor.HttpContext?.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
             if (string.IsNullOrEmpty(userId))
                 throw new UnauthorizedAccessException("User ID not found in token.");
             return userId;
