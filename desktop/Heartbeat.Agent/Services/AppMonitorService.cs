@@ -89,7 +89,7 @@ namespace Heartbeat.Agent.Services
                             StartTime = _currentStart,
                             EndTime = now
                         });
-                        Log.Information("应用结束: {App}，时长 {Duration:F1}s", _currentApp, duration.TotalSeconds);
+                        Log.Debug("应用结束: {App}，时长 {Duration:F1}s", _currentApp, duration.TotalSeconds);
                     }
                 }
 
@@ -98,7 +98,7 @@ namespace Heartbeat.Agent.Services
 
                 if (newApp != null)
                 {
-                    Log.Information("应用切换: {App}", newApp);
+                    Log.Debug("应用切换: {App}", newApp);
                 }
             }
 
@@ -147,7 +147,7 @@ namespace Heartbeat.Agent.Services
                 Log.Information("收集到 {Count} 条使用记录，准备上传", copy.Count);
                 foreach (var item in copy)
                 {
-                    Log.Information("  {App}: {Start:HH:mm:ss} - {End:HH:mm:ss} ({Duration:F1}s)",
+                    Log.Debug("  {App}: {Start:HH:mm:ss} - {End:HH:mm:ss} ({Duration:F1}s)",
                         item.AppName, item.StartTime.LocalDateTime, item.EndTime.LocalDateTime,
                         (item.EndTime - item.StartTime).TotalSeconds);
                 }

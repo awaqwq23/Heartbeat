@@ -2,7 +2,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Heartbeat.Agent.Configuration;
 using Heartbeat.Agent.Services;
+using Heartbeat.WPF.Logging;
 using Microsoft.Extensions.DependencyInjection;
+using Serilog.Events;
 using System.Windows;
 
 namespace Heartbeat.WPF.ViewModels
@@ -49,6 +51,10 @@ namespace Heartbeat.WPF.ViewModels
         [ObservableProperty]
         private string _logText = string.Empty;
 
+        [ObservableProperty]
+        private LogEventLevel _selectedLogLevel = LogEventLevel.Information;
+
+        private readonly List<LogEntry> _allLogs = [];
         private int _logLineCount;
         private readonly int _maxLogLines = App.LogSink.Capacity;
         private bool _suppressAutoStartEvent;
@@ -74,9 +80,27 @@ namespace Heartbeat.WPF.ViewModels
             var existingLogs = App.LogSink.GetAll();
             if (existingLogs.Count > 0)
             {
-                LogText = string.Join(Environment.NewLine, existingLogs);
-                _logLineCount = existingLogs.Count;
+                _allLogs.AddRange(existingLogs);
+                RebuildLogText();
             }
+        }
+
+        partial void OnSelectedLogLevelChanged(LogEventLevel value)
+        {
+            RebuildLogText();
+        }
+
+        [RelayCommand]
+        private void SetLogLevel(string level)
+        {
+            SelectedLogLevel = Enum.Parse<LogEventLevel>(level);
+        }
+
+        private void RebuildLogText()
+        {
+            var filtered = _allLogs.Where(e => e.Level >= SelectedLogLevel).Select(e => e.Message);
+            LogText = string.Join(Environment.NewLine, filtered);
+            _logLineCount = LogText.Split(Environment.NewLine).Length;
         }
 
         private void LoadConfig()
@@ -167,25 +191,32 @@ namespace Heartbeat.WPF.ViewModels
             });
         }
 
-        private void HandleLogChanged(IReadOnlyList<string> newLogs)
+        private void HandleLogChanged(IReadOnlyList<LogEntry> newLogs)
         {
             Application.Current?.Dispatcher.BeginInvoke(() =>
             {
                 if (newLogs.Count == 0) return;
 
-                var newText = string.Join(Environment.NewLine, newLogs);
+                _allLogs.AddRange(newLogs);
+
+                // 超过 2 倍容量时裁剪
+                if (_allLogs.Count > _maxLogLines * 2)
+                {
+                    _allLogs.RemoveRange(0, _allLogs.Count - _maxLogLines);
+                }
+
+                var filtered = newLogs.Where(e => e.Level >= SelectedLogLevel).Select(e => e.Message);
+                var newText = string.Join(Environment.NewLine, filtered);
+                if (string.IsNullOrEmpty(newText)) return;
+
                 LogText = string.IsNullOrEmpty(LogText)
                     ? newText
                     : LogText + Environment.NewLine + newText;
-                _logLineCount += newLogs.Count;
+                _logLineCount += newLogs.Count(e => e.Level >= SelectedLogLevel);
 
-                // 超过 2 倍容量时裁剪，摊销裁剪成本
                 if (_logLineCount > _maxLogLines * 2)
                 {
-                    var lines = LogText.Split(Environment.NewLine);
-                    var keep = lines[^_maxLogLines..];
-                    LogText = string.Join(Environment.NewLine, keep);
-                    _logLineCount = keep.Length;
+                    RebuildLogText();
                 }
             });
         }

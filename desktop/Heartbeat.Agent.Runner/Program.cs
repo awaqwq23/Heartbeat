@@ -10,8 +10,10 @@ var logDir = Path.Combine(
     "Heartbeat", "logs");
 
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Information()
-    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
+    .MinimumLevel.Debug()
+    .MinimumLevel.Override("System.Net.Http", Serilog.Events.LogEventLevel.Warning)
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}",
+        restrictedToMinimumLevel: Serilog.Events.LogEventLevel.Information)
     .WriteTo.File(Path.Combine(logDir, "heartbeat-.log"),
         rollingInterval: RollingInterval.Day,
         outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")

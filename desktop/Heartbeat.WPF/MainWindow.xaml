@@ -80,7 +80,13 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="运行日志" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock Text="运行日志" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <Button Content="DBG" Padding="6,2" Margin="0,0,4,0" Command="{Binding SetLogLevelCommand}" CommandParameter="Debug"/>
+                        <Button Content="INF" Padding="6,2" Margin="0,0,4,0" Command="{Binding SetLogLevelCommand}" CommandParameter="Information"/>
+                        <Button Content="WRN" Padding="6,2" Margin="0,0,4,0" Command="{Binding SetLogLevelCommand}" CommandParameter="Warning"/>
+                        <Button Content="ERR" Padding="6,2" Command="{Binding SetLogLevelCommand}" CommandParameter="Error"/>
+                    </StackPanel>
                     <TextBox x:Name="LogTextBox" Grid.Row="1"
                              Text="{Binding LogText, Mode=OneWay}"
                              IsReadOnly="True"

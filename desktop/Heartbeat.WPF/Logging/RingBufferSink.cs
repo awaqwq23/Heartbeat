@@ -7,6 +7,8 @@ using Serilog.Formatting.Display;
 
 namespace Heartbeat.WPF.Logging
 {
+    public record struct LogEntry(string Message, LogEventLevel Level);
+
     /// <summary>
     /// 环形缓冲区 Serilog Sink，用于 UI 日志显示。
     /// 使用固定数组 + 写指针实现 O(1) 写入，增量推送 + 节流 UI 刷新。
@@ -15,7 +17,7 @@ namespace Heartbeat.WPF.Logging
     {
         private readonly int _capacity;
         private readonly Lock _lock = new();
-        private readonly string[] _ring;
+        private readonly LogEntry[] _ring;
         private int _head;   // 下一个写入位置
         private int _count;  // 当前有效元素数
         private long _totalWrites;       // 累计写入次数（单调递增）
@@ -34,12 +36,12 @@ namespace Heartbeat.WPF.Logging
         /// 增量日志变更事件（已节流，最快 500ms 触发一次）。
         /// 参数为自上次通知以来的新条目（按时间顺序）。
         /// </summary>
-        public event Action<IReadOnlyList<string>>? LogChanged;
+        public event Action<IReadOnlyList<LogEntry>>? LogChanged;
 
         public RingBufferSink(int capacity = 200, string outputTemplate = "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
         {
             _capacity = capacity;
-            _ring = new string[capacity];
+            _ring = new LogEntry[capacity];
             _formatter = new MessageTemplateTextFormatter(outputTemplate);
         }
 
@@ -53,8 +55,7 @@ namespace Heartbeat.WPF.Logging
 
             lock (_lock)
             {
-                // O(1) 写入：直接覆盖最老元素
-                _ring[_head] = message;
+                _ring[_head] = new LogEntry(message, logEvent.Level);
                 _head = (_head + 1) % _capacity;
                 if (_count < _capacity) _count++;
                 _totalWrites++;
@@ -86,13 +87,13 @@ namespace Heartbeat.WPF.Logging
         /// <summary>
         /// 获取缓冲区中所有条目（按时间顺序），用于初始加载。
         /// </summary>
-        public IReadOnlyList<string> GetAll()
+        public IReadOnlyList<LogEntry> GetAll()
         {
             lock (_lock)
             {
                 _lastNotifiedAt = _totalWrites;
 
-                var result = new string[_count];
+                var result = new LogEntry[_count];
                 if (_count < _capacity)
                 {
                     Array.Copy(_ring, 0, result, 0, _count);
@@ -111,9 +112,9 @@ namespace Heartbeat.WPF.Logging
         /// 从环形缓冲区末尾提取最近 count 条记录（按时间顺序）。
         /// 调用方需持有 _lock。
         /// </summary>
-        private string[] ExtractRecent(int count)
+        private LogEntry[] ExtractRecent(int count)
         {
-            var result = new string[count];
+            var result = new LogEntry[count];
             var start = ((_head - count) % _capacity + _capacity) % _capacity;
             for (var i = 0; i < count; i++)
             {
@@ -137,7 +138,7 @@ namespace Heartbeat.WPF.Logging
 
         private void NotifyChanged()
         {
-            IReadOnlyList<string> delta;
+            IReadOnlyList<LogEntry> delta;
             lock (_lock)
             {
                 var newCount = (int)Math.Min(_totalWrites - _lastNotifiedAt, _count);

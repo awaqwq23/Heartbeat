@@ -60,7 +60,8 @@ namespace Heartbeat.WPF
                 "Heartbeat", "logs");
 
             Log.Logger = new LoggerConfiguration()
-                .MinimumLevel.Information()
+                .MinimumLevel.Debug()
+                .MinimumLevel.Override("System.Net.Http", Serilog.Events.LogEventLevel.Warning)
                 .WriteTo.File(System.IO.Path.Combine(logDir, "heartbeat-.log"),
                     rollingInterval: RollingInterval.Day,
                     outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
