@@ -27,8 +27,6 @@ services:
       AuthService__Authority: ${AUTH_AUTHORITY}
       AuthService__Issuer: ${AUTH_ISSUER:-AuthService}
       AuthService__Audience: ${AUTH_AUDIENCE:-AuthService}
-    ports:
-      - "127.0.0.1:5023:8080"
     networks:
       - backend
 
