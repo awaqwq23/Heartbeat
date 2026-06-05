@@ -10,7 +10,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-ENV VITE_BASE_PATH=$VITE_BASE_PATH
+RUN echo "VITE_BASE_PATH=$VITE_BASE_PATH" > .env
 RUN npm run build
 
 # --- runtime stage ---
