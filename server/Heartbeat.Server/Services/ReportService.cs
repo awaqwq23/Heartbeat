@@ -51,10 +51,11 @@ namespace Heartbeat.Server.Services
                 query = query.Where(x => x.DeviceId == deviceId.Value);
 
             return await query
-                .GroupBy(x => x.AppId)
+                .GroupBy(x => new { x.AppId, AppName = x.App.Name })
                 .Select(g => new AppDurationItem
                 {
-                    AppId = g.Key,
+                    AppId = g.Key.AppId,
+                    AppName = g.Key.AppName,
                     DurationSeconds = g.Sum(x => x.DurationSeconds)
                 })
                 .OrderByDescending(x => x.DurationSeconds)

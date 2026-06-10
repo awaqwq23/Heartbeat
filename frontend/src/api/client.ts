@@ -448,6 +448,7 @@ export class Client {
 
 export class AppDurationItem implements IAppDurationItem {
     appId?: number;
+    appName?: string;
     durationSeconds?: number;
 
     [key: string]: any;
@@ -468,6 +469,7 @@ export class AppDurationItem implements IAppDurationItem {
                     this[property] = _data[property];
             }
             this.appId = _data["appId"];
+            this.appName = _data["appName"];
             this.durationSeconds = _data["durationSeconds"];
         }
     }
@@ -486,6 +488,7 @@ export class AppDurationItem implements IAppDurationItem {
                 data[property] = this[property];
         }
         data["appId"] = this.appId;
+        data["appName"] = this.appName;
         data["durationSeconds"] = this.durationSeconds;
         return data;
     }
@@ -493,6 +496,7 @@ export class AppDurationItem implements IAppDurationItem {
 
 export interface IAppDurationItem {
     appId?: number;
+    appName?: string;
     durationSeconds?: number;
 
     [key: string]: any;

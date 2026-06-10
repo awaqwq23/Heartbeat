@@ -61,7 +61,7 @@ export function useHeartbeat(username: string) {
     return dailyReport.value.apps
       .map(a => ({
         appId: a.appId!,
-        appName: appNameMap.value.get(a.appId!) ?? `App ${a.appId}`,
+        appName: a.appName ?? `App ${a.appId}`,
         totalSeconds: a.durationSeconds!,
       }))
       .sort((a, b) => b.totalSeconds - a.totalSeconds)
@@ -89,7 +89,7 @@ export function useHeartbeat(username: string) {
     return weeklyReport.value.apps
       .map(a => ({
         appId: a.appId!,
-        appName: appNameMap.value.get(a.appId!) ?? `App ${a.appId}`,
+        appName: a.appName ?? `App ${a.appId}`,
         totalSeconds: a.durationSeconds!,
       }))
       .sort((a, b) => b.totalSeconds - a.totalSeconds)
