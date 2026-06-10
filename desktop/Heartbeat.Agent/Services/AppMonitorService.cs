@@ -5,73 +5,47 @@ using Serilog;
 
 namespace Heartbeat.Agent.Services
 {
-    public class AppMonitorService : IHostedService, IDisposable
+    public class AppMonitorService(IClock clock, IWindowEventMonitor windowMonitor) : IHostedService, IDisposable
     {
         private readonly object _lock = new();
         private string? _currentApp;
         private DateTimeOffset _currentStart;
         private readonly List<AppUsageItem> _usages = [];
-        private Thread? _hookThread;
 
-        /// <summary>
-        /// 当前前台应用变更事件（UI 可订阅用于展示）
-        /// </summary>
         public event Action<string?>? CurrentAppChanged;
 
-        /// <summary>
-        /// 启动前台窗口监听（由主机调用）
-        /// </summary>
         public Task StartAsync(CancellationToken cancellationToken)
         {
             Log.Information("应用监测服务启动");
 
-            ActiveWindowHelper.ForegroundWindowChanged += OnForegroundChanged;
+            windowMonitor.ForegroundWindowChanged += OnForegroundChanged;
 
-            var initialApp = ActiveWindowHelper.GetForegroundProcessName();
+            var initialApp = windowMonitor.GetForegroundProcessName();
             if (initialApp != null)
             {
                 lock (_lock)
                 {
                     _currentApp = initialApp;
-                    _currentStart = DateTimeOffset.UtcNow;
+                    _currentStart = clock.UtcNow;
                     Log.Information("初始前台应用: {App}", initialApp);
                 }
             }
 
-            _hookThread = new Thread(() =>
-            {
-                try
-                {
-                    ActiveWindowHelper.StartHook();
-                }
-                catch (Exception ex)
-                {
-                    Log.Error(ex, "WinEvent 钩子线程异常");
-                }
-            })
-            {
-                IsBackground = true,
-                Name = "WinEventHookThread"
-            };
-            _hookThread.Start();
-
+            windowMonitor.Start();
             return Task.CompletedTask;
         }
 
-        /// <summary>
-        /// 停止监听（由主机调用）
-        /// </summary>
         public Task StopAsync(CancellationToken cancellationToken)
         {
             Log.Information("应用监测服务停止");
-            ActiveWindowHelper.ForegroundWindowChanged -= OnForegroundChanged;
-            ActiveWindowHelper.StopHook();
+            windowMonitor.ForegroundWindowChanged -= OnForegroundChanged;
+            windowMonitor.Stop();
             return Task.CompletedTask;
         }
 
         private void OnForegroundChanged(string? newApp)
         {
-            var now = DateTimeOffset.UtcNow;
+            var now = clock.UtcNow;
 
             lock (_lock)
             {
@@ -102,13 +76,9 @@ namespace Heartbeat.Agent.Services
                 }
             }
 
-            // 在锁外触发事件
             CurrentAppChanged?.Invoke(newApp);
         }
 
-        /// <summary>
-        /// 获取当前前台应用名称
-        /// </summary>
         public string? GetCurrentApp()
         {
             lock (_lock)
@@ -117,12 +87,9 @@ namespace Heartbeat.Agent.Services
             }
         }
 
-        /// <summary>
-        /// 获取并清空已记录的使用数据（将当前活跃会话截断）
-        /// </summary>
         public List<AppUsageItem> GetAndClearUsages()
         {
-            var now = DateTimeOffset.UtcNow;
+            var now = clock.UtcNow;
 
             lock (_lock)
             {
@@ -158,9 +125,8 @@ namespace Heartbeat.Agent.Services
 
         public void Dispose()
         {
-            ActiveWindowHelper.ForegroundWindowChanged -= OnForegroundChanged;
-            ActiveWindowHelper.StopHook();
-            _hookThread?.Join(TimeSpan.FromSeconds(3));
+            windowMonitor.ForegroundWindowChanged -= OnForegroundChanged;
+            windowMonitor.Stop();
             GC.SuppressFinalize(this);
         }
     }

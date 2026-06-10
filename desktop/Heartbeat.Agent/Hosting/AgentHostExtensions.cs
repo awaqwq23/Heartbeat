@@ -54,6 +54,10 @@ namespace Heartbeat.Agent.Hosting
                 return new LocalCache(cachePath);
             });
 
+            // 基础设施
+            services.AddSingleton<IClock, SystemClock>();
+            services.AddSingleton<IWindowEventMonitor, WindowsWindowEventMonitor>();
+
             // 业务服务
             services.AddSingleton<AppMonitorService>();
             services.AddSingleton<UsageUploadService>();
