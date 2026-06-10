@@ -1,3 +1,4 @@
+using Heartbeat.Core;
 using Heartbeat.Core.DTOs.Usage;
 using System.Text.Json;
 
@@ -29,6 +30,7 @@ namespace Heartbeat.Agent.Storage
             {
                 var snapshot = new List<AppUsageItem>(_cache);
                 _cache.AddRange(items);
+                _cache = UsageMerger.Merge(_cache);
 
                 if (_cache.Count > MaxCacheSize)
                 {

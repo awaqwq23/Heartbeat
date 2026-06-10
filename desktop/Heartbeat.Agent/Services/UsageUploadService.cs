@@ -1,6 +1,5 @@
 using Heartbeat.Agent.Http;
 using Heartbeat.Agent.Storage;
-using Heartbeat.Core;
 using Heartbeat.Core.DTOs.Usage;
 using Serilog;
 
@@ -23,15 +22,14 @@ namespace Heartbeat.Agent.Services
 
         public async Task UploadAsync(List<AppUsageItem> usages)
         {
-            usages = UsageMerger.Merge(usages);
             var dto = MapToDto(usages);
 
             Log.Information("正在上传 {Count} 条使用记录...", usages.Count);
             var result = await apiClient.UploadUsageAsync(dto);
             if (!result.Success)
             {
-                Log.Information("{Count} 条记录已缓存到本地", usages.Count);
                 cache.Add(usages);
+                Log.Information("{Count} 条记录已缓存到本地", usages.Count);
                 return;
             }
             Log.Information("上传成功，共 {Count} 条记录", usages.Count);
@@ -42,8 +40,7 @@ namespace Heartbeat.Agent.Services
             var cached = cache.Load();
             if (cached.Count == 0) return;
 
-            cached = UsageMerger.Merge(cached);
-            Log.Information("发现 {Count} 条缓存记录（合并后），尝试上传...", cached.Count);
+            Log.Information("发现 {Count} 条缓存记录，尝试上传...", cached.Count);
             var dto = MapToDto(cached);
 
             var result = await apiClient.UploadUsageAsync(dto);
