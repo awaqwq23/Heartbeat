@@ -7,6 +7,14 @@ import StatusCards from './StatusCards.vue'
 import CurrentAppPanel from './CurrentAppPanel.vue'
 import TodayRanking from './TodayRanking.vue'
 import WeeklyChart from './WeeklyChart.vue'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import DatePicker from './DatePicker.vue'
 
 const props = defineProps<{ username: string }>()
 
@@ -34,26 +42,56 @@ const {
   weeklyTotalSeconds,
   timezoneLabel,
 } = useHeartbeat(props.username)
+
+// Reka UI Select 用字符串值，selectedDevice 是 number —— 用 computed 双向桥接
+const selectedDeviceStr = computed({
+  get: () => String(selectedDevice.value),
+  set: (v: string) => { selectedDevice.value = Number(v) },
+})
 </script>
 
 <template>
-  <div class="dashboard">
-    <header class="header">
-      <div class="header-left">
-        <div class="logo">
-          <span class="status-dot" :class="{ alive: isAlive }"></span>
-          <span>{{ username }}</span>
-        </div>
+  <div class="mx-auto w-[min(100%,1400px)] px-[clamp(0.75rem,3vw,2.5rem)] py-[clamp(1rem,3vw,2.5rem)] relative">
+    <header class="mb-[clamp(1.25rem,3vw,2rem)] flex flex-wrap items-center justify-between gap-x-4 gap-y-3 max-[640px]:flex-col max-[640px]:items-start">
+      <div class="flex select-none items-center gap-3 whitespace-nowrap text-[clamp(1.15rem,2.5vw,1.5rem)] font-bold tracking-tight">
+        <span class="status-dot" :class="{ alive: isAlive }"></span>
+        <span>{{ username }}</span>
       </div>
-      <div class="controls">
-        <span class="tz-badge" :title="'数据按浏览器所在时区的日期展示，不代表设备所在时区'">{{ timezoneLabel }}</span>
-        <select v-model="selectedDevice" class="ctl">
-          <option v-for="d in devices" :key="d.id" :value="d.id">{{ d.name }}</option>
-        </select>
-        <input type="date" v-model="selectedDate" class="ctl" />
-        <a v-if="isOwnProfile" href="/heartbeat/settings" class="ctl btn-link">设置</a>
-        <button v-if="authStore.isAuthenticated" class="ctl btn-logout" @click="authStore.logout()">登出</button>
-        <button v-else class="ctl btn-login" @click="authStore.redirectToLogin()">登录</button>
+
+      <div class="flex flex-wrap gap-2 max-[640px]:w-full">
+        <span
+          class="inline-flex cursor-help select-none items-center whitespace-nowrap rounded-md border border-border bg-card px-2.5 py-1.5 font-mono text-[0.7rem] text-muted-foreground"
+          title="数据按浏览器所在时区的日期展示，不代表设备所在时区"
+        >{{ timezoneLabel }}</span>
+
+        <Select v-model="selectedDeviceStr">
+          <SelectTrigger class="h-auto min-w-[8rem] bg-card py-1.5 text-sm max-[640px]:flex-1">
+            <SelectValue placeholder="选择设备" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem v-for="d in devices" :key="d.id" :value="String(d.id)">
+              {{ d.name }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+
+        <DatePicker v-model="selectedDate" class="max-[640px]:flex-1" />
+
+        <a
+          v-if="isOwnProfile"
+          href="/heartbeat/settings"
+          class="inline-flex items-center text-[0.8rem] text-muted-foreground no-underline transition-colors hover:text-foreground"
+        >设置</a>
+        <button
+          v-if="authStore.isAuthenticated"
+          class="cursor-pointer bg-transparent text-[0.8rem] text-muted-foreground transition-colors hover:text-foreground"
+          @click="authStore.logout()"
+        >登出</button>
+        <button
+          v-else
+          class="cursor-pointer rounded-md bg-primary px-2.5 py-1.5 text-[0.8rem] text-primary-foreground transition-colors hover:bg-primary-dark"
+          @click="authStore.redirectToLogin()"
+        >登录</button>
       </div>
     </header>
 
@@ -66,8 +104,8 @@ const {
         :totalSeconds="totalSeconds"
       />
 
-      <div class="main-grid">
-        <div class="col-main">
+      <div class="grid grid-cols-1 gap-0 min-[900px]:grid-cols-[1fr_340px] min-[900px]:items-start min-[900px]:gap-5 min-[1200px]:grid-cols-[1fr_420px] min-[1200px]:gap-6">
+        <div class="min-w-0">
           <CurrentAppPanel
             :isToday="isToday"
             :isAlive="isAlive"
@@ -84,7 +122,7 @@ const {
           />
         </div>
 
-        <div class="col-aside">
+        <div class="min-w-0 min-[900px]:sticky min-[900px]:top-4">
           <TodayRanking
             :appSummaries="appSummaries"
             :maxSeconds="maxSeconds"
@@ -103,134 +141,13 @@ const {
 </template>
 
 <style scoped>
-.dashboard {
-  width: min(100%, 1400px);
-  margin: 0 auto;
-  padding: clamp(1rem, 3vw, 2.5rem) clamp(0.75rem, 3vw, 2.5rem);
-  position: relative;
-}
-
-.header {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem 1rem;
-  margin-bottom: clamp(1.25rem, 3vw, 2rem);
-}
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: clamp(1.15rem, 2.5vw, 1.5rem);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  user-select: none;
-  white-space: nowrap;
-}
-
-.header-subtitle {
-  font-size: 0.75rem;
-  color: var(--text-dim);
-}
-
-.controls {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.ctl {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 0.4rem 0.65rem;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.2s;
-  min-width: 0;
-}
-
-.ctl:focus {
-  border-color: var(--accent);
-}
-
-.btn-logout {
-  background: transparent;
-  color: var(--text-dim);
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.btn-logout:hover {
-  color: var(--text);
-}
-
-.btn-login {
-  background: var(--accent);
-  color: var(--primary-foreground);
-  border-color: var(--accent);
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.btn-link {
-  text-decoration: none;
-  color: var(--text-dim);
-  font-size: 0.8rem;
-  display: inline-flex;
-  align-items: center;
-  transition: color 0.2s;
-}
-
-.btn-link:hover {
-  color: var(--text);
-}
-
-.tz-badge {
-  display: inline-flex;
-  align-items: center;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  color: var(--text-dim);
-  padding: 0.4rem 0.65rem;
-  border-radius: 6px;
-  font-size: 0.7rem;
-  font-family: var(--font-mono);
-  cursor: help;
-  user-select: none;
-  white-space: nowrap;
-}
-
-.main-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 0;
-}
-
-.col-main,
-.col-aside {
-  min-width: 0;
-}
-
 .loading-bar {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 2px;
-  background: var(--accent);
+  background: var(--primary);
   animation: loading 1s ease-in-out infinite;
 }
 
@@ -239,41 +156,5 @@ const {
   50%  { transform: scaleX(1); transform-origin: left; }
   51%  { transform-origin: right; }
   100% { transform: scaleX(0); transform-origin: right; }
-}
-
-@media (min-width: 900px) {
-  .main-grid {
-    grid-template-columns: 1fr 340px;
-    gap: 1.25rem;
-    align-items: start;
-  }
-
-  .col-aside {
-    position: sticky;
-    top: 1rem;
-  }
-}
-
-@media (min-width: 1200px) {
-  .main-grid {
-    grid-template-columns: 1fr 420px;
-    gap: 1.5rem;
-  }
-}
-
-@media (max-width: 640px) {
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .controls {
-    width: 100%;
-  }
-
-  .ctl {
-    flex: 1;
-    text-align: center;
-  }
 }
 </style>
