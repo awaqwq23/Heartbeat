@@ -26,12 +26,12 @@ import { authStore } from '../stores/auth'
 }
 h1 { font-size: 1.5rem; font-weight: 700; }
 .btn {
-  background: var(--bg-card);
+  background: var(--card);
   border: 1px solid var(--border);
-  color: var(--text);
+  color: var(--foreground);
   padding: 0.4rem 0.8rem;
   border-radius: 6px;
   cursor: pointer;
 }
-.placeholder { color: var(--text-dim); }
+.placeholder { color: var(--muted-foreground); }
 </style>

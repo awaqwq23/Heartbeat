@@ -114,22 +114,8 @@
 }
 
 /* ============================================================
-   Legacy bridge — maps old variable names to new tokens so the
-   not-yet-rewritten components keep rendering during migration.
-   REMOVE in the final cleanup step once all components use the
-   new token names / Tailwind utilities.
+   Global utilities — status dot (used by Dashboard / CurrentAppPanel)
    ============================================================ */
-:root {
-  --bg: var(--background);
-  --bg-card: var(--card);
-  --text: var(--foreground);
-  --text-dim: var(--muted-foreground);
-  --accent: var(--primary);
-  --accent-sub: var(--primary-dark);
-  --font: var(--font-sans);
-  --font-mono: var(--font-mono);
-}
-
 @keyframes pulse {
   0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--alive); }
   50% { opacity: 0.4; box-shadow: 0 0 2px var(--alive); }
@@ -148,29 +134,4 @@
   background: var(--alive);
   box-shadow: 0 0 8px var(--alive);
   animation: pulse 2s ease-in-out infinite;
-}
-
-.panel {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 1.25rem;
-  margin-bottom: 1.5rem;
-}
-
-.panel h2 {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--muted-foreground);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-top: 0;
-  margin-bottom: 1rem;
-}
-
-.empty {
-  text-align: center;
-  padding: 2rem;
-  color: var(--muted-foreground);
-  font-size: 0.9rem;
 }
