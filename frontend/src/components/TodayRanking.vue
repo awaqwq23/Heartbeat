@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getIconUrl } from '../api/index'
 import { formatDuration } from '../composables/useHeartbeat'
+import { Card } from '@/components/ui/card'
 
 defineProps<{
   appSummaries: { appId: number; appName: string; totalSeconds: number }[]
@@ -9,60 +10,35 @@ defineProps<{
 </script>
 
 <template>
-  <section class="panel">
-    <h2>今日应用时长排行</h2>
-    <div v-if="appSummaries.length" class="ranking">
-      <div v-for="(app, i) in appSummaries" :key="app.appName" class="rank-row">
-        <div class="rank-meta">
-          <span class="rank-i">{{ i + 1 }}</span>
-          <img
-            :src="getIconUrl(app.appId)"
-            class="rank-icon"
-            @error="($event.target as HTMLImageElement).style.display = 'none'"
-          />
-          <span class="rank-name">{{ app.appName }}</span>
-          <span class="rank-dur">{{ formatDuration(app.totalSeconds) }}</span>
-        </div>
-        <div class="bar-bg">
-          <div
-            class="bar"
-            :style="{ width: `${(app.totalSeconds / maxSeconds) * 100}%` }"
-          ></div>
+  <Card class="mb-6 gap-3 border-border/60 bg-card/80 py-5 backdrop-blur-sm">
+    <div class="flex flex-col gap-3 px-5">
+      <h2 class="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">今日应用时长排行</h2>
+
+      <div
+        v-if="appSummaries.length"
+        class="flex max-h-[200px] flex-col gap-3 overflow-y-auto pr-1 min-[900px]:max-h-[280px] min-[1200px]:max-h-[340px]"
+      >
+        <div v-for="(app, i) in appSummaries" :key="app.appName" class="flex flex-col gap-1">
+          <div class="flex items-center gap-2 text-[0.85rem]">
+            <span class="w-6 text-center text-xs font-semibold text-muted-foreground">{{ i + 1 }}</span>
+            <img
+              :src="getIconUrl(app.appId)"
+              class="h-[18px] w-[18px] rounded object-contain"
+              @error="($event.target as HTMLImageElement).style.display = 'none'"
+            />
+            <span class="flex-1 truncate">{{ app.appName }}</span>
+            <span class="font-mono text-[0.8rem] text-muted-foreground">{{ formatDuration(app.totalSeconds) }}</span>
+          </div>
+          <div class="ml-8 h-1 overflow-hidden rounded-sm bg-secondary">
+            <div
+              class="h-full rounded-sm bg-primary"
+              :style="{ width: `${(app.totalSeconds / maxSeconds) * 100}%` }"
+            ></div>
+          </div>
         </div>
       </div>
+
+      <div v-else class="py-8 text-center text-[0.9rem] text-muted-foreground">暂无数据</div>
     </div>
-    <div v-else class="empty">暂无数据</div>
-  </section>
+  </Card>
 </template>
-
-<style scoped>
-.ranking { 
-  display: flex; 
-  flex-direction: column; 
-  gap: 0.75rem; 
-  max-height: 200px; /* ~7 items */
-  overflow-y: auto;
-  padding-right: 4px;
-}
-.rank-row { display: flex; flex-direction: column; gap: 0.25rem; }
-.rank-meta { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
-.rank-i { width: 1.5rem; color: var(--text-dim); font-size: 0.75rem; font-weight: 600; text-align: center; }
-.rank-icon { width: 18px; height: 18px; border-radius: 4px; object-fit: contain; }
-.rank-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rank-dur { font-family: var(--font-mono); color: var(--text-dim); font-size: 0.8rem; }
-.bar-bg { height: 4px; background: var(--secondary); border-radius: 2px; overflow: hidden; margin-left: 2rem; }
-.bar { height: 100%; background: var(--accent); border-radius: 2px; }
-
-/* Sidebar mode: allow more items */
-@media (min-width: 900px) {
-  .ranking {
-    max-height: 280px;
-  }
-}
-
-@media (min-width: 1200px) {
-  .ranking {
-    max-height: 340px;
-  }
-}
-</style>
