@@ -50,7 +50,7 @@ defineProps<{
 .rank-icon { width: 18px; height: 18px; border-radius: 4px; object-fit: contain; }
 .rank-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rank-dur { font-family: var(--font-mono); color: var(--text-dim); font-size: 0.8rem; }
-.bar-bg { height: 4px; background: rgba(255, 255, 255, 0.05); border-radius: 2px; overflow: hidden; margin-left: 2rem; }
+.bar-bg { height: 4px; background: var(--secondary); border-radius: 2px; overflow: hidden; margin-left: 2rem; }
 .bar { height: 100%; background: var(--accent); border-radius: 2px; }
 
 /* Sidebar mode: allow more items */

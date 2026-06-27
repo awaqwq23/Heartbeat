@@ -179,7 +179,7 @@ const {
 
 .btn-login {
   background: var(--accent);
-  color: #fff;
+  color: var(--primary-foreground);
   border-color: var(--accent);
   font-size: 0.8rem;
   cursor: pointer;

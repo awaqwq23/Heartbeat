@@ -11,8 +11,8 @@ const props = defineProps<{
 const DONUT_MAX_ITEMS = 10
 const CIRCUMFERENCE = 2 * Math.PI * 70
 const CHART_COLORS = [
-  '#58a6ff', '#2ea043', '#d29922', '#f85149', '#bc8cff',
-  '#79c0ff', '#56d364', '#e3b341', '#ff7b72', '#d2a8ff',
+  'var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)',
+  'var(--accent-3)', 'var(--primary-dark)', 'var(--accent-2)', 'var(--destructive)', 'var(--accent-1)',
 ]
 
 const hoveredSegment = ref<number | null>(null)
@@ -55,7 +55,7 @@ const donutSegments = computed(() => {
     <div v-if="donutSegments.length" class="weekly-chart">
       <div class="donut-wrapper">
         <svg viewBox="0 0 200 200" class="donut-svg">
-          <circle cx="100" cy="100" r="70" fill="none" stroke="#1f1f1f" stroke-width="30" />
+          <circle cx="100" cy="100" r="70" fill="none" stroke="var(--secondary)" stroke-width="30" />
           <circle
             v-for="(seg, i) in donutSegments"
             :key="i"
@@ -202,7 +202,7 @@ const donutSegments = computed(() => {
 }
 
 .legend-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--accent);
 }
 
 .legend-item.dimmed {

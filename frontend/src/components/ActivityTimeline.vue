@@ -328,7 +328,7 @@ const minimapActivities = computed(() => {
 
 .mode-toggle {
   display: flex;
-  background: #2a2a2a;
+  background: var(--secondary);
   border-radius: 6px;
   padding: 2px;
   gap: 2px;
@@ -349,13 +349,13 @@ const minimapActivities = computed(() => {
 
 .tg-btn:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--accent);
 }
 
 .tg-btn.active {
-  color: var(--text);
-  background: #444;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  color: var(--primary-foreground);
+  background: var(--primary);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Simple Timeline Styles (Restored from App.vue) */
@@ -394,7 +394,7 @@ const minimapActivities = computed(() => {
 
 .minimap {
   height: 24px;
-  background: #1a1a1a;
+  background: var(--secondary);
   border: 1px solid var(--border);
   border-radius: 4px;
   position: relative;
@@ -410,7 +410,7 @@ const minimapActivities = computed(() => {
   position: absolute;
   top: 6px;
   bottom: 6px;
-  background: var(--accent, #3ee08e);
+  background: var(--accent-3);
   opacity: 0.6;
   border-radius: 2px;
 }
@@ -419,8 +419,8 @@ const minimapActivities = computed(() => {
   position: absolute;
   top: 0;
   bottom: 0;
-  background: rgba(88, 166, 255, 0.2);
-  border: 1px solid rgba(88, 166, 255, 0.5);
+  background: var(--primary-soft);
+  border: 1px solid var(--primary);
   cursor: grab;
   box-sizing: border-box;
   touch-action: pan-y;
@@ -435,7 +435,7 @@ const minimapActivities = computed(() => {
   top: 0;
   bottom: 0;
   width: 8px;
-  background: rgba(88, 166, 255, 0.8);
+  background: var(--primary);
   cursor: ew-resize;
 }
 
@@ -445,7 +445,7 @@ const minimapActivities = computed(() => {
 .timeline-body {
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #1a1a1a;
+  background: var(--secondary);
   overflow: hidden;
   cursor: grab;
   touch-action: pan-y;
@@ -458,7 +458,7 @@ const minimapActivities = computed(() => {
 .timeline-ticks {
   display: flex;
   height: 24px;
-  background: #222;
+  background: var(--muted);
   border-bottom: 1px solid var(--border);
 }
 
@@ -496,7 +496,7 @@ const minimapActivities = computed(() => {
   top: 24px;
   bottom: -500px; /* Arbitrary long line downwards */
   width: 1px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--border);
   z-index: 0;
 }
 
@@ -524,7 +524,7 @@ const minimapActivities = computed(() => {
 .timeline-row {
   display: flex;
   height: 40px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--border);
 }
 
 .timeline-row:last-child {
@@ -535,7 +535,7 @@ const minimapActivities = computed(() => {
   width: 120px;
   flex-shrink: 0;
   border-right: 1px solid var(--border);
-  background: #1e1e1e;
+  background: var(--muted);
   display: flex;
   align-items: center;
   padding: 0 8px;

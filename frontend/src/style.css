@@ -1,68 +1,135 @@
+@import "tailwindcss";
+@import "./styles/tokens.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ============================================================
+   Tailwind theme mapping — exposes tokens as utilities
+   ============================================================ */
+@theme inline {
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* brand extensions */
+  --color-primary-dark: var(--primary-dark);
+  --color-primary-soft: var(--primary-soft);
+  --color-accent-1: var(--accent-1);
+  --color-accent-2: var(--accent-2);
+  --color-accent-3: var(--accent-3);
+  --color-alive: var(--alive);
+  --color-dead: var(--dead);
+
+  /* charts */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* radius */
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 3px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 6px);
+
+  /* elevation + glow */
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-glow: var(--shadow-glow);
+
+  /* ambient backgrounds */
+  --background-image-bg-gradient: var(--bg-gradient);
+  --background-image-hero-glow: var(--hero-glow);
+
+  /* glass */
+  --color-glass: var(--glass-bg);
+  --color-glass-border: var(--glass-border);
+  --blur-glass: var(--glass-blur);
+}
+
+/* ============================================================
+   Base layer
+   ============================================================ */
+@layer base {
+  * {
+    border-color: var(--border);
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    color: var(--foreground);
+    background-color: var(--background);
+    background-image: var(--bg-gradient);
+    background-attachment: fixed;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  input,
+  select {
+    font-family: var(--font-sans);
+  }
+
+  ::selection {
+    background: var(--primary-soft);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 3px;
+  }
+}
+
+/* ============================================================
+   Legacy bridge — maps old variable names to new tokens so the
+   not-yet-rewritten components keep rendering during migration.
+   REMOVE in the final cleanup step once all components use the
+   new token names / Tailwind utilities.
+   ============================================================ */
 :root {
-  --bg: #0d1117;
-  --bg-card: #161b22;
-  --border: #30363d;
-
-  --text: #c9d1d9;
-  --text-dim: #8b949e;
-
-  --accent: #2ea043;
-  --accent-sub: #238636;
-
-  --alive: #3fb950;
-  --dead: #f85149;
-  
-  --font: "Microsoft YaHei", -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'Cascadia Code', 'SF Mono', 'Consolas', monospace;
-}
-*,
-*::before,
-*::after {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+  --bg: var(--background);
+  --bg-card: var(--card);
+  --text: var(--foreground);
+  --text-dim: var(--muted-foreground);
+  --accent: var(--primary);
+  --accent-sub: var(--primary-dark);
+  --font: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
-body {
-  font-family: var(--font);
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  -webkit-font-smoothing: antialiased;
-}
-
-input {
-  font-family: var(--font);
-}
-
-select {
-  font-family: var(--font);
-}
-
-::selection {
-  background: rgba(232, 168, 56, 0.3);
-}
-
-/* Global Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background-color: var(--border);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background-color: #444;
-}
-
-/* Global Shared Styles */
 @keyframes pulse {
   0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--alive); }
   50% { opacity: 0.4; box-shadow: 0 0 2px var(--alive); }
@@ -72,7 +139,7 @@ select {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #444;
+  background: var(--muted-foreground);
   flex-shrink: 0;
   transition: background 0.3s;
 }
@@ -84,7 +151,7 @@ select {
 }
 
 .panel {
-  background: var(--bg-card);
+  background: var(--card);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 1.25rem;
@@ -94,7 +161,7 @@ select {
 .panel h2 {
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--text-dim);
+  color: var(--muted-foreground);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-top: 0;
@@ -104,6 +171,6 @@ select {
 .empty {
   text-align: center;
   padding: 2rem;
-  color: var(--text-dim);
+  color: var(--muted-foreground);
   font-size: 0.9rem;
 }
