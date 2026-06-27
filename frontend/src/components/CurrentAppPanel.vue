@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getIconUrl } from '../api/index'
 import { getAppLabel } from '../appLabels'
+import { Card } from '@/components/ui/card'
 
 defineProps<{
   isToday: boolean
@@ -11,66 +12,38 @@ defineProps<{
 </script>
 
 <template>
-  <section class="panel current-app-panel" v-if="isToday">
-    <h2>当前使用</h2>
-    <div class="current-app" v-if="isAlive && currentApp">
-      <span class="status-dot alive"></span>
-      <img
-        v-if="currentAppId"
-        :src="getIconUrl(currentAppId)"
-        class="current-icon"
-        @error="($event.target as HTMLImageElement).style.display = 'none'"
-      />
-      <div class="current-info">
-        <span class="current-name">{{ currentApp }}</span>
-        <span class="current-desc" v-if="getAppLabel(currentApp)">{{ getAppLabel(currentApp) }}</span>
+  <Card v-if="isToday" class="mb-6 gap-3 border-border/60 bg-card/80 py-5 backdrop-blur-sm">
+    <div class="flex flex-col gap-3 px-5">
+      <h2 class="text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">当前使用</h2>
+
+      <!-- 在线 + 有前台应用 -->
+      <div v-if="isAlive && currentApp" class="flex items-center gap-3 py-1">
+        <span class="status-dot alive"></span>
+        <img
+          v-if="currentAppId"
+          :src="getIconUrl(currentAppId)"
+          class="h-7 w-7 shrink-0 rounded-md object-contain"
+          @error="($event.target as HTMLImageElement).style.display = 'none'"
+        />
+        <div class="flex flex-col gap-0.5">
+          <span class="text-[1.1rem] font-semibold">{{ currentApp }}</span>
+          <span v-if="getAppLabel(currentApp)" class="text-[0.8rem] text-muted-foreground">
+            {{ getAppLabel(currentApp) }}
+          </span>
+        </div>
+      </div>
+
+      <!-- 离线 -->
+      <div v-else-if="!isAlive" class="flex items-center gap-3 py-1">
+        <span class="status-dot"></span>
+        <span class="text-[1.1rem] font-normal text-muted-foreground">设备离线</span>
+      </div>
+
+      <!-- 在线但无前台应用 -->
+      <div v-else class="flex items-center gap-3 py-1">
+        <span class="status-dot alive"></span>
+        <span class="text-[1.1rem] font-normal text-muted-foreground">无前台应用</span>
       </div>
     </div>
-    <div class="current-app offline" v-else-if="!isAlive">
-      <span class="status-dot"></span>
-      <span class="current-name dim">设备离线</span>
-    </div>
-    <div class="current-app" v-else>
-      <span class="status-dot alive"></span>
-      <span class="current-name dim">无前台应用</span>
-    </div>
-  </section>
+  </Card>
 </template>
-
-<style scoped>
-.current-app {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.25rem 0;
-}
-
-.current-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  object-fit: contain;
-  flex-shrink: 0;
-}
-
-.current-name {
-  font-size: 1.1rem;
-  font-weight: 600;
-}
-
-.current-name.dim {
-  color: var(--text-dim);
-  font-weight: 400;
-}
-
-.current-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.current-desc {
-  font-size: 0.8rem;
-  color: var(--text-dim);
-}
-</style>
