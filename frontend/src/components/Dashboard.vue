@@ -52,18 +52,13 @@ const selectedDeviceStr = computed({
 
 <template>
   <div class="relative z-10 mx-auto w-[min(100%,1400px)] px-[clamp(0.75rem,3vw,2.5rem)] py-[clamp(1rem,3vw,2.5rem)]">
-    <header class="mb-[clamp(1.25rem,3vw,2rem)] flex flex-wrap items-center justify-between gap-x-4 gap-y-3 max-[640px]:flex-col max-[640px]:items-start">
-      <div class="flex select-none items-center gap-3 whitespace-nowrap font-display text-[clamp(1.15rem,2.5vw,1.5rem)] font-bold tracking-tight">
+    <header class="mb-[clamp(1.25rem,3vw,2rem)] flex flex-wrap items-center justify-between gap-x-4 gap-y-3 pr-12 max-[640px]:flex-col max-[640px]:items-stretch max-[640px]:pr-0">
+      <div class="flex select-none items-center gap-3 whitespace-nowrap font-display text-[clamp(1.15rem,2.5vw,1.5rem)] font-bold tracking-tight max-[640px]:pr-12">
         <span class="status-dot" :class="{ alive: isAlive }"></span>
         <span>{{ username }}</span>
       </div>
 
       <div class="flex flex-wrap items-center gap-2 max-[640px]:w-full">
-        <span
-          class="glass-control cursor-help whitespace-nowrap px-3 py-1.5 font-mono text-[0.7rem] text-muted-foreground"
-          title="数据按浏览器所在时区的日期展示，不代表设备所在时区"
-        >{{ timezoneLabel }}</span>
-
         <Select v-model="selectedDeviceStr">
           <SelectTrigger class="glass-control h-auto min-w-[8rem] border-glass-border px-3 py-1.5 text-sm shadow-sm max-[640px]:flex-1">
             <SelectValue placeholder="选择设备" />
@@ -76,6 +71,11 @@ const selectedDeviceStr = computed({
         </Select>
 
         <DatePicker v-model="selectedDate" class="max-[640px]:flex-1" />
+
+        <span
+          class="glass-control cursor-help whitespace-nowrap px-3 py-1.5 font-mono text-[0.7rem] text-muted-foreground"
+          title="数据按浏览器所在时区的日期展示，不代表设备所在时区"
+        >{{ timezoneLabel }}</span>
 
         <a
           v-if="isOwnProfile"

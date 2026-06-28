@@ -295,7 +295,7 @@ const minimapActivities = computed(() => {
           @touchstart="timelinePointerDown($event)"
         >
           <div class="flex h-6 border-b border-border bg-muted">
-            <div class="w-[120px] shrink-0 border-r border-border"></div>
+            <div class="w-[80px] shrink-0 border-r border-border min-[640px]:w-[120px]"></div>
             <div class="relative flex-1">
               <div
                 class="pointer-events-none absolute bottom-0 top-0 flex -translate-x-1/2 flex-col items-center"
@@ -326,7 +326,7 @@ const minimapActivities = computed(() => {
               :key="row.appId"
               class="flex h-10 border-b border-border last:border-b-0"
             >
-              <div class="z-[2] flex w-[120px] shrink-0 items-center gap-2 border-r border-border bg-muted px-2">
+              <div class="z-[2] flex w-[80px] shrink-0 items-center gap-2 border-r border-border bg-muted px-2 min-[640px]:w-[120px]">
                 <img :src="getIconUrl(row.appId)" class="h-5 w-5 rounded object-contain" @error="($event.target as HTMLImageElement).style.display = 'none'"/>
                 <span class="flex-1 truncate text-[0.75rem] text-foreground" :title="row.name">{{ row.name }}</span>
               </div>
