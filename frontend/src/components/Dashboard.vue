@@ -51,7 +51,7 @@ const selectedDeviceStr = computed({
 </script>
 
 <template>
-  <div class="mx-auto w-[min(100%,1400px)] px-[clamp(0.75rem,3vw,2.5rem)] py-[clamp(1rem,3vw,2.5rem)] relative">
+  <div class="relative z-10 mx-auto w-[min(100%,1400px)] px-[clamp(0.75rem,3vw,2.5rem)] py-[clamp(1rem,3vw,2.5rem)]">
     <header class="mb-[clamp(1.25rem,3vw,2rem)] flex flex-wrap items-center justify-between gap-x-4 gap-y-3 max-[640px]:flex-col max-[640px]:items-start">
       <div class="flex select-none items-center gap-3 whitespace-nowrap font-display text-[clamp(1.15rem,2.5vw,1.5rem)] font-bold tracking-tight">
         <span class="status-dot" :class="{ alive: isAlive }"></span>
