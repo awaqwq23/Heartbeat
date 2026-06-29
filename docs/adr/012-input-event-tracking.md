@@ -39,7 +39,7 @@ Adopt a **raw input event stream**: one row per input event, stored in a single 
 
 ### Idempotency
 
-The Agent generates a **UUIDv7** per event at creation time, used as the row's `Id`. The server inserts with `ON CONFLICT (Id) DO NOTHING`, so retries (ADR-008 offline cache, lost ACKs) are naturally safe. UUIDv7 is time-ordered, giving good append-only write locality on the index. The independent `Timestamp` column is **retained** as the authoritative time source (v7's millisecond ordering is not reliable within the same millisecond, and decoding time from the uuid for every query would be wasteful).
+The Agent generates a **UUIDv7** per event at creation time, used as the row's `Id`. On upload the server dedups by `Id` — it pre-filters out ids that already exist before inserting (EF-idiomatic, matching the rest of the codebase), with the `Id` primary-key constraint as the hard backstop. Retries (ADR-008 offline cache, lost ACKs) are therefore naturally safe. UUIDv7 is time-ordered, giving good append-only write locality on the index. The independent `Timestamp` column is **retained** as the authoritative time source (v7's millisecond ordering is not reliable within the same millisecond, and decoding time from the uuid for every query would be wasteful).
 
 ### Collection (Agent)
 

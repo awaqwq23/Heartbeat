@@ -17,6 +17,7 @@ builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<DeviceService>();
 builder.Services.AddScoped<AppService>();
 builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<InputEventService>();
 builder.Services.AddHttpClient("AuthService", client =>
 {
     client.BaseAddress = new Uri(builder.Configuration["AuthService:Authority"]!);
