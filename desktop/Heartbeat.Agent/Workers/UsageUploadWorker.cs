@@ -9,6 +9,8 @@ namespace Heartbeat.Agent.Workers
         AppMonitorService monitor,
         UsageUploadService usageService,
         IconUploadService iconService,
+        InputEventCollector inputCollector,
+        InputEventUploadService inputUploadService,
         ConfigManager configManager) : BackgroundService
     {
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -27,8 +29,10 @@ namespace Heartbeat.Agent.Workers
 
                     // 先尝试上传缓存的离线记录
                     await usageService.UploadCachedAsync();
+                    await inputUploadService.UploadCachedAsync();
 
                     await UploadUsagesAsync();
+                    await UploadInputEventsAsync();
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -48,6 +52,7 @@ namespace Heartbeat.Agent.Workers
             try
             {
                 await UploadUsagesAsync();
+                await UploadInputEventsAsync();
             }
             catch (Exception ex)
             {
@@ -76,6 +81,14 @@ namespace Heartbeat.Agent.Workers
                     Log.Warning(ex, "图标上传失败: {App}", appName);
                 }
             }
+        }
+
+        private async Task UploadInputEventsAsync()
+        {
+            var events = inputCollector.GetAndClearEvents();
+            if (events.Count == 0) return;
+
+            await inputUploadService.UploadAsync(events);
         }
     }
 }
