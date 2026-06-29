@@ -42,7 +42,7 @@ nswag openapi2tsclient /input:http://localhost:5023/openapi/v1.json /output:fron
 | 接口路径                | 方法 | 鉴权     | 说明                                                                              |
 | ----------------------- | ---- | -------- | --------------------------------------------------------------------------------- |
 | `/input-events`         | POST | `[Auth]` | [客户端] 批量上传输入事件 (由 Id, EventType, Code, Timestamp 组成，幂等)           |
-| `/input-events/counts`  | GET  | 无       | [前端] 获取某时间段内的键盘/鼠标操作计数。参数: `deviceId` (可选), `start`, `end` |
+| `/input-events/counts`  | GET  | `[Auth]` | [前端] 获取某时间段内的键盘/鼠标操作计数。参数: `deviceId` (可选), `start`, `end` |
 
 `/input-events/counts` 返回示例：
 

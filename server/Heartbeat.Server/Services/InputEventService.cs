@@ -43,5 +43,56 @@ namespace Heartbeat.Server.Services
             _db.InputEvents.AddRange(toInsert);
             await _db.SaveChangesAsync();
         }
+
+        /// <summary>
+        /// 统计某时间段内的键盘/鼠标操作计数。按 (EventType, Code) 分组后映射到响应字段。
+        /// </summary>
+        public async Task<InputCountsResponse> GetCountsAsync(
+            string ownerId, long? deviceId, DateTimeOffset? start, DateTimeOffset? end)
+        {
+            var query = _db.InputEvents.Where(e => e.Device.OwnerId == ownerId);
+
+            if (deviceId.HasValue)
+                query = query.Where(e => e.DeviceId == deviceId.Value);
+
+            if (start.HasValue)
+                query = query.Where(e => e.Timestamp >= start.Value);
+
+            if (end.HasValue)
+                query = query.Where(e => e.Timestamp < end.Value);
+
+            var groups = await query
+                .GroupBy(e => new { e.EventType, e.Code })
+                .Select(g => new { g.Key.EventType, g.Key.Code, Count = g.LongCount() })
+                .ToListAsync();
+
+            var response = new InputCountsResponse();
+            foreach (var g in groups)
+            {
+                switch (g.EventType)
+                {
+                    case InputEventType.KeyDown:
+                        response.KeyboardTotal += g.Count;
+                        break;
+                    case InputEventType.MouseButton when g.Code == 1:
+                        response.MouseLeft += g.Count;
+                        break;
+                    case InputEventType.MouseButton when g.Code == 2:
+                        response.MouseRight += g.Count;
+                        break;
+                    case InputEventType.MouseButton when g.Code == 3:
+                        response.MouseMiddle += g.Count;
+                        break;
+                    case InputEventType.MouseScroll when g.Code == 1:
+                        response.ScrollUp += g.Count;
+                        break;
+                    case InputEventType.MouseScroll when g.Code == 2:
+                        response.ScrollDown += g.Count;
+                        break;
+                }
+            }
+
+            return response;
+        }
     }
 }

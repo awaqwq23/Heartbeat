@@ -34,5 +34,17 @@ namespace Heartbeat.Server.Controllers
             await _inputEventService.SaveAsync(device.Id, request);
             return Ok();
         }
+
+        [HttpGet("counts")]
+        [ProducesResponseType(typeof(InputCountsResponse), 200)]
+        public async Task<IActionResult> GetCounts(
+            [FromQuery] long? deviceId,
+            [FromQuery] DateTimeOffset? start,
+            [FromQuery] DateTimeOffset? end)
+        {
+            var userId = _currentUser.GetUserId();
+            var result = await _inputEventService.GetCountsAsync(userId, deviceId, start, end);
+            return Ok(result);
+        }
     }
 }

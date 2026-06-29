@@ -130,4 +130,108 @@ public class InputEventServiceTests(PostgresContainerFixture fixture) : Postgres
 
         Assert.Equal(0, await db.InputEvents.CountAsync());
     }
+
+    [Fact]
+    public async Task GetCounts_AggregatesByTypeAndCode()
+    {
+        var now = DateTimeOffset.UtcNow;
+        using (var db = CreateDbContext())
+        {
+            await new InputEventService(db).SaveAsync(_deviceId, new InputEventUploadRequest
+            {
+                Events =
+                [
+                    Item(InputEventType.KeyDown, 65, now),
+                    Item(InputEventType.KeyDown, 66, now.AddMilliseconds(1)),
+                    Item(InputEventType.KeyDown, 67, now.AddMilliseconds(2)),
+                    Item(InputEventType.MouseButton, 1, now.AddMilliseconds(3)),
+                    Item(InputEventType.MouseButton, 1, now.AddMilliseconds(4)),
+                    Item(InputEventType.MouseButton, 2, now.AddMilliseconds(5)),
+                    Item(InputEventType.MouseButton, 3, now.AddMilliseconds(6)),
+                    Item(InputEventType.MouseScroll, 1, now.AddMilliseconds(7)),
+                    Item(InputEventType.MouseScroll, 2, now.AddMilliseconds(8)),
+                    Item(InputEventType.MouseScroll, 2, now.AddMilliseconds(9)),
+                ]
+            });
+        }
+
+        using (var db = CreateDbContext())
+        {
+            var counts = await new InputEventService(db).GetCountsAsync("user-1", null, null, null);
+
+            Assert.Equal(3, counts.KeyboardTotal);
+            Assert.Equal(2, counts.MouseLeft);
+            Assert.Equal(1, counts.MouseRight);
+            Assert.Equal(1, counts.MouseMiddle);
+            Assert.Equal(1, counts.ScrollUp);
+            Assert.Equal(2, counts.ScrollDown);
+        }
+    }
+
+    [Fact]
+    public async Task GetCounts_FiltersByTimeRange()
+    {
+        var now = DateTimeOffset.UtcNow;
+        using (var db = CreateDbContext())
+        {
+            await new InputEventService(db).SaveAsync(_deviceId, new InputEventUploadRequest
+            {
+                Events =
+                [
+                    Item(InputEventType.KeyDown, 65, now.AddHours(-2)),  // 范围外
+                    Item(InputEventType.KeyDown, 66, now.AddMinutes(-30)), // 范围内
+                    Item(InputEventType.KeyDown, 67, now.AddMinutes(-10)), // 范围内
+                ]
+            });
+        }
+
+        using (var db = CreateDbContext())
+        {
+            var counts = await new InputEventService(db)
+                .GetCountsAsync("user-1", null, now.AddHours(-1), now);
+
+            Assert.Equal(2, counts.KeyboardTotal);
+        }
+    }
+
+    [Fact]
+    public async Task GetCounts_OnlyCountsOwnerDevices()
+    {
+        var now = DateTimeOffset.UtcNow;
+        // 另一个用户的设备
+        long otherDeviceId;
+        using (var db = CreateDbContext())
+        {
+            var other = new Device { OwnerId = "user-2", HardwareId = "hw-2", DeviceName = "Other" };
+            db.Devices.Add(other);
+            await db.SaveChangesAsync();
+            otherDeviceId = other.Id;
+
+            await new InputEventService(db).SaveAsync(_deviceId, new InputEventUploadRequest
+            {
+                Events = [Item(InputEventType.KeyDown, 65, now)]
+            });
+            await new InputEventService(db).SaveAsync(otherDeviceId, new InputEventUploadRequest
+            {
+                Events = [Item(InputEventType.KeyDown, 66, now), Item(InputEventType.KeyDown, 67, now.AddMilliseconds(1))]
+            });
+        }
+
+        using (var db = CreateDbContext())
+        {
+            var counts = await new InputEventService(db).GetCountsAsync("user-1", null, null, null);
+            Assert.Equal(1, counts.KeyboardTotal);
+        }
+    }
+
+    [Fact]
+    public async Task GetCounts_EmptyData_ReturnsZeros()
+    {
+        using var db = CreateDbContext();
+        var counts = await new InputEventService(db).GetCountsAsync("user-1", null, null, null);
+
+        Assert.Equal(0, counts.KeyboardTotal);
+        Assert.Equal(0, counts.MouseLeft);
+        Assert.Equal(0, counts.ScrollDown);
+    }
 }
