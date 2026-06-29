@@ -54,7 +54,7 @@ The Agent generates a **UUIDv7** per event at creation time, used as the row's `
 ### Contract (Shared Kernel)
 
 - New endpoint **`POST /input-events`** (`[Auth]` + `X-Hardware-Id`, same as other client upload endpoints).
-- DTOs live in `Heartbeat.Core`: `InputEventBatchDto { List<InputEventItem> }`, item = `Id, EventType, Code, Timestamp`. `DeviceId` is not in the DTO.
+- DTOs live in `Heartbeat.Core`: `InputEventUploadRequest { List<InputEventItem> Events }`, item = `Id, EventType, Code, Timestamp`. `DeviceId` is not in the DTO.
 
 ### Reporting (Analytics / Dashboard)
 
