@@ -10,6 +10,7 @@ import {
   buildTodayUsage,
   todayDateStr,
   weekRange,
+  keyFrequency,
 } from './fixtures'
 
 // 用 `*` 通配前缀，匹配任意 origin 下的 /api/v1 路径，
@@ -74,6 +75,11 @@ export const handlers = [
       totalSeconds: weeklyTotalSeconds,
       apps: weeklyAppDurations,
     })
+  }),
+
+  // GET /users/:username/input-events/key-frequency?deviceId&start&end
+  http.get(`${API}/users/:username/input-events/key-frequency`, () => {
+    return HttpResponse.json({ keys: keyFrequency })
   }),
 
   // GET /apps/:appId/icon —— 返回按 appId 生成的色块 SVG

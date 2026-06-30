@@ -7,6 +7,7 @@ import StatusCards from './StatusCards.vue'
 import CurrentAppPanel from './CurrentAppPanel.vue'
 import TodayRanking from './TodayRanking.vue'
 import WeeklyChart from './WeeklyChart.vue'
+import KeyboardHeatmap from './KeyboardHeatmap.vue'
 import {
   Select,
   SelectContent,
@@ -40,6 +41,7 @@ const {
   activeHours,
   weeklyAppSummaries,
   weeklyTotalSeconds,
+  keyFrequency,
   timezoneLabel,
 } = useHeartbeat(props.username)
 
@@ -120,6 +122,8 @@ const selectedDeviceStr = computed({
             :selectedDate="selectedDate"
             :isToday="isToday"
           />
+
+          <KeyboardHeatmap :keyFrequency="keyFrequency" />
         </div>
 
         <div class="min-w-0 min-[900px]:sticky min-[900px]:top-4">

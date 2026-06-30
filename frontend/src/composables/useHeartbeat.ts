@@ -1,6 +1,6 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import type { AppInfoResponse, AppUsageResponse, AppSummary, DeviceInfoResponse, DeviceStatusResponse, DailyReportResponse, WeeklyReportResponse } from '../api/index'
-import { fetchPublicDevices, fetchPublicApps, fetchPublicDeviceStatus, fetchPublicUsage, fetchPublicDailyReport, fetchPublicWeeklyReport, getTimezoneLabel } from '../api/index'
+import { fetchPublicDevices, fetchPublicApps, fetchPublicDeviceStatus, fetchPublicUsage, fetchPublicDailyReport, fetchPublicWeeklyReport, fetchPublicKeyFrequency, getTimezoneLabel } from '../api/index'
 
 function todayStr(): string {
   const d = new Date()
@@ -24,6 +24,7 @@ export function useHeartbeat(username: string) {
   const deviceStatus = ref<DeviceStatusResponse | null>(null)
   const dailyReport = ref<DailyReportResponse | null>(null)
   const weeklyReport = ref<WeeklyReportResponse | null>(null)
+  const keyFrequency = ref<{ code: number; count: number }[]>([])
   const loading = ref(false)
 
   const appNameMap = computed(() => {
@@ -122,10 +123,19 @@ export function useHeartbeat(username: string) {
     weeklyReport.value = await fetchPublicWeeklyReport(username, { deviceId: selectedDevice.value, date: selectedDate.value })
   }
 
+  async function loadKeyFrequency() {
+    if (!selectedDevice.value) return
+    const dateObj = new Date(selectedDate.value + 'T00:00:00')
+    const start = dateObj.toISOString()
+    const end = new Date(dateObj.getTime() + 86400000).toISOString()
+    const res = await fetchPublicKeyFrequency(username, { deviceId: selectedDevice.value, start, end })
+    keyFrequency.value = res.keys
+  }
+
   async function refresh() {
     loading.value = true
     try {
-      await Promise.all([loadUsage(), loadStatus(), loadDailyReport(), loadWeeklyReport()])
+      await Promise.all([loadUsage(), loadStatus(), loadDailyReport(), loadWeeklyReport(), loadKeyFrequency()])
     } finally {
       loading.value = false
     }
@@ -157,6 +167,7 @@ export function useHeartbeat(username: string) {
         // loadUsage()
         loadDailyReport()
         loadWeeklyReport()
+        loadKeyFrequency()
       }
     }, 30_000)
   })
@@ -187,6 +198,7 @@ export function useHeartbeat(username: string) {
     activeHours,
     weeklyAppSummaries,
     weeklyTotalSeconds,
+    keyFrequency,
     timezoneLabel,
   }
 }

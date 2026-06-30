@@ -44,6 +44,15 @@ export interface AppSummary {
   totalSeconds: number
 }
 
+export interface KeyFrequencyItem {
+  code: number
+  count: number
+}
+
+export interface KeyFrequencyResponse {
+  keys: KeyFrequencyItem[]
+}
+
 /** 将 "yyyy-MM-dd" 格式化为带本地时区偏移的 ISO 字符串，如 "2026-03-06T00:00:00+08:00" */
 function toLocalDateTimeOffsetString(dateStr: string): string {
   const offset = new Date().getTimezoneOffset()
@@ -221,5 +230,23 @@ export async function fetchPublicUsage(username: string, params: {
     return (await res.json()).map((u: any) => AppUsageResponse.fromJS(u))
   } catch {
     return []
+  }
+}
+
+export async function fetchPublicKeyFrequency(username: string, params: {
+  deviceId?: number
+  start?: string
+  end?: string
+}): Promise<KeyFrequencyResponse> {
+  try {
+    const searchParams = new URLSearchParams()
+    if (params.deviceId !== undefined) searchParams.set('deviceId', String(params.deviceId))
+    if (params.start) searchParams.set('start', params.start)
+    if (params.end) searchParams.set('end', params.end)
+    const res = await fetch(`${API_BASE}/users/${username}/input-events/key-frequency?${searchParams}`)
+    if (!res.ok) return { keys: [] }
+    return await res.json()
+  } catch {
+    return { keys: [] }
   }
 }
