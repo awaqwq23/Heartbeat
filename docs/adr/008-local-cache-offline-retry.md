@@ -37,8 +37,19 @@ Adopted a **local JSON file cache** (`LocalCache`):
 - ⚠️ JSON serialization on every failure — acceptable for the expected failure frequency (rare).
 - ⚠️ No deduplication: if the server received the data but the response was lost, records may be uploaded twice (server-side merge handles this, see [ADR-001](./001-server-side-usage-merging.md)).
 
+## Update (ADR-012): second cache for input events
+
+The same offline-retry pattern was reused for raw input events, but as a **separate** cache file
+and class (`InputEventLocalCache`) rather than extending `LocalCache`:
+
+- Stored at `%LocalAppData%/Heartbeat/input-events-cache.json`, same atomic-rename + `ReaderWriterLockSlim` discipline.
+- **Append-only, no merging** — input events are deduplicated server-side by their client-generated `Id` (UUIDv7), so the merge step `LocalCache` performs for usage records does not apply.
+- Capped at **100,000 records** (vs. 10K for usage), since input events arrive at much higher volume (~50k/day); oldest dropped on overflow.
+- Retried by the same `UsageUploadWorker` loop (`inputUploadService.UploadCachedAsync()` runs alongside the usage cache flush).
+
 ## References
 
-- [`desktop/Heartbeat.Agent/Storage/LocalCache.cs`](../../desktop/Heartbeat.Agent/Storage/LocalCache.cs) — cache implementation
+- [`desktop/Heartbeat.Agent/Storage/LocalCache.cs`](../../desktop/Heartbeat.Agent/Storage/LocalCache.cs) — usage cache implementation (10K cap, with merge)
+- [`desktop/Heartbeat.Agent/Storage/InputEventLocalCache.cs`](../../desktop/Heartbeat.Agent/Storage/InputEventLocalCache.cs) — input-event cache (100K cap, append-only; ADR-012)
 - [`desktop/Heartbeat.Agent/Services/UsageUploadService.cs`](../../desktop/Heartbeat.Agent/Services/UsageUploadService.cs) — upload with cache fallback
-- [`desktop/Heartbeat.Agent/Workers/UsageUploadWorker.cs`](../../desktop/Heartbeat.Agent/Workers/UsageUploadWorker.cs) — retry loop (cached first, then fresh)
+- [`desktop/Heartbeat.Agent/Workers/UsageUploadWorker.cs`](../../desktop/Heartbeat.Agent/Workers/UsageUploadWorker.cs) — retry loop (cached first, then fresh; flushes both usage and input events)

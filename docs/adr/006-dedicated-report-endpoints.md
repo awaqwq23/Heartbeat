@@ -22,12 +22,17 @@ Alternatives:
 
 ## Decision
 
-Added a **`ReportController`** with dedicated endpoints:
+Added a **`ReportController`** (authenticated, route `api/v1/reports`) with dedicated endpoints:
 
-- `GET /report/daily?deviceId=&date=` — returns per-app duration totals for one day.
-- `GET /report/weekly?deviceId=&date=` — returns daily totals for a 7-day window.
+- `GET /api/v1/reports/daily?deviceId=&date=` — returns per-app duration totals for one day.
+- `GET /api/v1/reports/weekly?deviceId=&date=` — returns daily totals for a 7-day window.
 
-The raw `GET /usage` endpoint is preserved for detailed timeline views.
+The raw `GET /api/v1/usage` endpoint is preserved for detailed timeline views.
+
+The same aggregation logic is also exposed **publicly by username** through `PublicUserController`
+(route `api/v1/users/{username}`), e.g. `GET /api/v1/users/{username}/reports/daily`,
+`/reports/weekly`, `/usage`, `/apps`, `/devices` — these are unauthenticated read endpoints
+backing the public dashboard.
 
 ## Consequences
 
@@ -39,7 +44,8 @@ The raw `GET /usage` endpoint is preserved for detailed timeline views.
 
 ## References
 
-- [`server/Heartbeat.Server/Controllers/ReportController.cs`](../../server/Heartbeat.Server/Controllers/ReportController.cs) — report endpoints
+- [`server/Heartbeat.Server/Controllers/ReportController.cs`](../../server/Heartbeat.Server/Controllers/ReportController.cs) — authenticated report endpoints (`api/v1/reports`)
+- [`server/Heartbeat.Server/Controllers/PublicUserController.cs`](../../server/Heartbeat.Server/Controllers/PublicUserController.cs) — public-by-username read endpoints (`api/v1/users/{username}`)
 - [`server/Heartbeat.Server/Services/ReportService.cs`](../../server/Heartbeat.Server/Services/ReportService.cs) — aggregation logic
 - [`shared/Heartbeat.Core/DTOs/Reports/DailyReportResponse.cs`](../../shared/Heartbeat.Core/DTOs/Reports/DailyReportResponse.cs) — daily report DTO
 - [`shared/Heartbeat.Core/DTOs/Reports/WeeklyReportResponse.cs`](../../shared/Heartbeat.Core/DTOs/Reports/WeeklyReportResponse.cs) — weekly report DTO

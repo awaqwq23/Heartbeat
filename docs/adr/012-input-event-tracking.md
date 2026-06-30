@@ -1,10 +1,18 @@
 # ADR-012: Raw Input Event Tracking (Keyboard & Mouse)
 
-## Status: Proposed
+## Status: Accepted
 
 ## Date: 2026-06-29
 
-(pending implementation)
+[`257cb31`](https://github.com/shenxianovo/heartbeat/commit/257cb31) — feat(core): add input event upload DTO
+[`b3a7cee`](https://github.com/shenxianovo/heartbeat/commit/b3a7cee) — feat(server): add InputEvent entity and migration
+[`7a28c5f`](https://github.com/shenxianovo/heartbeat/commit/7a28c5f) — feat(server): add POST /input-events upload endpoint with idempotent dedup
+[`93e4525`](https://github.com/shenxianovo/heartbeat/commit/93e4525) — feat(server): add GET /input-events/counts endpoint
+[`fb8ba5a`](https://github.com/shenxianovo/heartbeat/commit/fb8ba5a) — feat(agent): add InputEventBuffer with auto-repeat filter and scroll normalization
+[`946aaeb`](https://github.com/shenxianovo/heartbeat/commit/946aaeb) — feat(agent): add low-level keyboard/mouse hook and InputEventCollector
+[`01c24aa`](https://github.com/shenxianovo/heartbeat/commit/01c24aa) — feat(agent): upload input events with offline cache via existing worker
+[`5d6f7d1`](https://github.com/shenxianovo/heartbeat/commit/5d6f7d1) — feat(server): add public per-key frequency endpoint for keyboard heatmap
+[`d35b596`](https://github.com/shenxianovo/heartbeat/commit/d35b596) — feat(frontend): add keyboard heatmap card with per-key frequency and fun stats
 
 ## Context
 
@@ -53,12 +61,14 @@ The Agent generates a **UUIDv7** per event at creation time, used as the row's `
 
 ### Contract (Shared Kernel)
 
-- New endpoint **`POST /input-events`** (`[Auth]` + `X-Hardware-Id`, same as other client upload endpoints).
+- New endpoint **`POST /api/v1/input-events`** (`[Authorize]` JWT + `X-Hardware-Id`/`X-Device-Name`, same as other client upload endpoints; device resolved server-side via `DeviceService.ResolveByHardwareIdAsync`).
 - DTOs live in `Heartbeat.Core`: `InputEventUploadRequest { List<InputEventItem> Events }`, item = `Id, EventType, Code, Timestamp`. `DeviceId` is not in the DTO.
 
 ### Reporting (Analytics / Dashboard)
 
-Dedicated-endpoint style (ADR-006). This version ships **only** `GET /input-events/counts`:
+Dedicated-endpoint style (ADR-006). Two read paths are now shipped:
+
+**1. Counts — `GET /api/v1/input-events/counts`** (`[Authorize]`, on `InputEventController`):
 
 - Params: `deviceId?`, `start`, `end` (timezone boundary supplied by the frontend, per Shared Kernel conventions).
 - Returns a single total via `GROUP BY EventType, Code`:
@@ -68,21 +78,34 @@ Dedicated-endpoint style (ADR-006). This version ships **only** `GET /input-even
   "mouseMiddle": 33, "scrollUp": 1502, "scrollDown": 1789 }
 ```
 
+**2. Per-key frequency — `GET /api/v1/users/{username}/input-events/key-frequency`** (public, on `PublicUserController`):
+
+- Originally listed as "deferred" below, but **now shipped** to back the dashboard's keyboard heatmap.
+- Public-by-username (no auth), consistent with the other `PublicUserController` read endpoints (ADR-006). Params: `deviceId?`, `start`, `end`.
+- Returns every keyboard `KeyDown` grouped by raw VK `Code`, descending by count, not truncated (`KeyFrequencyResponse { List<KeyFrequencyItem{ Code, Count }> Keys }`). VK→name mapping is done at the presentation layer.
+
 ## Consequences
 
 - ✅ Raw stream supports arbitrary future stats without schema change (just add endpoints).
 - ✅ UUIDv7 gives lock-free client-side dedup + good write locality, with no client-maintained sequence state.
 - ✅ Single wide table keeps the upload pipeline and queries simple; new input types = new `EventType` value.
-- ✅ Reuses existing worker, LocalCache, and auth — minimal new infrastructure.
+- ✅ Reuses existing worker, LocalCache pattern, and auth — minimal new infrastructure. (Input events use a *separate* `InputEventLocalCache` file, append-only, 100K cap — see ADR-008.)
 - ⚠️ Per-key + millisecond data on the server is equivalent to keylogger output (accepted for single-user self-hosted use).
 - ⚠️ Higher write volume than AppUsage (~50k rows/day); fine for PostgreSQL at this scale, but not free forever.
 - ⚠️ Low-level input hooks are latency-sensitive; a slow callback gets the hook silently unhooked. Callback work must stay minimal.
-- ⚠️ Deferred (not yet built): typing-speed endpoint, per-key frequency, time-of-day distribution, mouse movement tracking.
+- ⚠️ Deferred (not yet built): typing-speed endpoint, time-of-day distribution, mouse movement tracking. (Per-key frequency, originally deferred, has since shipped via the public `key-frequency` endpoint.)
 
 ## References
 
-<!-- Filled in as implementation lands -->
-
-- `shared/Heartbeat.Core/DTOs/Input/` — input event DTOs (pending)
-- `desktop/Heartbeat.Agent/Services/InputEventCollector.cs` — capture (pending)
-- `server/Heartbeat.Server/` — `InputEvent` entity, upload + counts endpoints (pending)
+- [`shared/Heartbeat.Core/DTOs/Input/InputEventUploadRequest.cs`](../../shared/Heartbeat.Core/DTOs/Input/InputEventUploadRequest.cs) — upload DTO + `InputEventType` enum
+- [`shared/Heartbeat.Core/DTOs/Input/InputCountsResponse.cs`](../../shared/Heartbeat.Core/DTOs/Input/InputCountsResponse.cs) — counts response DTO
+- [`shared/Heartbeat.Core/DTOs/Input/KeyFrequencyResponse.cs`](../../shared/Heartbeat.Core/DTOs/Input/KeyFrequencyResponse.cs) — per-key frequency response DTO
+- [`desktop/Heartbeat.Agent/Utils/LowLevelInputHook.cs`](../../desktop/Heartbeat.Agent/Utils/LowLevelInputHook.cs) — `WH_KEYBOARD_LL` / `WH_MOUSE_LL` hook + dedicated message pump
+- [`desktop/Heartbeat.Agent/Services/InputEventBuffer.cs`](../../desktop/Heartbeat.Agent/Services/InputEventBuffer.cs) — in-memory buffer, auto-repeat filter, scroll normalization, UUIDv7 generation
+- [`desktop/Heartbeat.Agent/Services/InputEventCollector.cs`](../../desktop/Heartbeat.Agent/Services/InputEventCollector.cs) — `IHostedService` owning the hook thread
+- [`desktop/Heartbeat.Agent/Storage/InputEventLocalCache.cs`](../../desktop/Heartbeat.Agent/Storage/InputEventLocalCache.cs) — offline cache (ADR-008)
+- [`server/Heartbeat.Server/Entities/InputEvent.cs`](../../server/Heartbeat.Server/Entities/InputEvent.cs) — entity (UUIDv7 PK, `(DeviceId, Timestamp)` index)
+- [`server/Heartbeat.Server/Services/InputEventService.cs`](../../server/Heartbeat.Server/Services/InputEventService.cs) — idempotent save, counts + key-frequency aggregation
+- [`server/Heartbeat.Server/Controllers/InputEventController.cs`](../../server/Heartbeat.Server/Controllers/InputEventController.cs) — authenticated upload + counts
+- [`server/Heartbeat.Server/Controllers/PublicUserController.cs`](../../server/Heartbeat.Server/Controllers/PublicUserController.cs) — public per-key frequency endpoint
+- [`server/Heartbeat.Server/Migrations/20260629112934_AddInputEvents.cs`](../../server/Heartbeat.Server/Migrations/20260629112934_AddInputEvents.cs) — `InputEvents` table migration
