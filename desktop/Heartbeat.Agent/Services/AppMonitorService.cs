@@ -1,16 +1,26 @@
+using Heartbeat.Agent.Configuration;
 using Heartbeat.Agent.Utils;
+using Heartbeat.Core;
 using Heartbeat.Core.DTOs.Usage;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 
 namespace Heartbeat.Agent.Services
 {
-    public class AppMonitorService(IClock clock, IWindowEventMonitor windowMonitor) : IHostedService, IDisposable
+    public class AppMonitorService(
+        IClock clock,
+        IWindowEventMonitor windowMonitor,
+        IPowerMonitor powerMonitor,
+        ConfigManager configManager) : IHostedService, IDisposable
     {
         private readonly object _lock = new();
         private string? _currentApp;
         private DateTimeOffset _currentStart;
         private readonly List<AppUsageItem> _usages = [];
+
+        // away 状态（息屏 / 睡眠）。详见 ADR-014。
+        private bool _isAway;
+        private DateTimeOffset _awayStart;
 
         public event Action<string?>? CurrentAppChanged;
 
@@ -20,7 +30,12 @@ namespace Heartbeat.Agent.Services
 
             windowMonitor.ForegroundWindowChanged += OnForegroundChanged;
 
-            var initialApp = windowMonitor.GetForegroundProcessName();
+            powerMonitor.DisplayOff += OnEnterAway;
+            powerMonitor.Suspend += OnEnterAway;
+            powerMonitor.DisplayOn += OnExitAway;
+            powerMonitor.Resume += OnExitAway;
+
+            var initialApp = Normalize(windowMonitor.GetForegroundProcessName());
             if (initialApp != null)
             {
                 lock (_lock)
@@ -32,6 +47,7 @@ namespace Heartbeat.Agent.Services
             }
 
             windowMonitor.Start();
+            powerMonitor.Start();
             return Task.CompletedTask;
         }
 
@@ -40,50 +56,92 @@ namespace Heartbeat.Agent.Services
             Log.Information("应用监测服务停止");
             windowMonitor.ForegroundWindowChanged -= OnForegroundChanged;
             windowMonitor.Stop();
+
+            powerMonitor.DisplayOff -= OnEnterAway;
+            powerMonitor.Suspend -= OnEnterAway;
+            powerMonitor.DisplayOn -= OnExitAway;
+            powerMonitor.Resume -= OnExitAway;
+            powerMonitor.Stop();
             return Task.CompletedTask;
         }
 
-        private void OnForegroundChanged(string? newApp)
+        private void OnForegroundChanged(string? rawApp)
         {
+            var newApp = Normalize(rawApp);
             var now = clock.UtcNow;
 
             lock (_lock)
             {
+                // away 期间（息屏/睡眠）忽略前台切换：不累加、不开段。
+                // away 段在 OnExitAway 时统一以 [_awayStart, now] 发出。
+                if (_isAway)
+                    return;
+
                 if (string.Equals(_currentApp, newApp, StringComparison.OrdinalIgnoreCase))
                     return;
 
-                if (_currentApp != null && _currentStart != default)
-                {
-                    var duration = now - _currentStart;
-                    if (duration.TotalSeconds >= 1)
-                    {
-                        _usages.Add(new AppUsageItem
-                        {
-                            AppName = _currentApp,
-                            StartTime = _currentStart,
-                            EndTime = now
-                        });
-                        Log.Debug("应用结束: {App}，时长 {Duration:F1}s", _currentApp, duration.TotalSeconds);
-                    }
-                }
+                CloseCurrentSegment(now);
 
                 _currentApp = newApp;
                 _currentStart = now;
 
                 if (newApp != null)
-                {
                     Log.Debug("应用切换: {App}", newApp);
-                }
             }
 
             CurrentAppChanged?.Invoke(newApp);
+        }
+
+        /// <summary>进入 away（息屏 / 睡眠）。首个触发生效，期间重复信号忽略。</summary>
+        private void OnEnterAway()
+        {
+            var now = clock.UtcNow;
+            lock (_lock)
+            {
+                if (_isAway) return;
+
+                // 用信号到达时刻封口当前真实应用段（Suspend 在挂起前执行，≈ 入睡时刻）。
+                CloseCurrentSegment(now);
+
+                _isAway = true;
+                _awayStart = now;
+                _currentApp = null;
+                _currentStart = default;
+                Log.Information("进入 away（息屏/睡眠），封口当前应用段");
+            }
+
+            CurrentAppChanged?.Invoke(null);
+        }
+
+        /// <summary>退出 away（亮屏 / 唤醒）。发出 away 段并以当前前台重开。</summary>
+        private void OnExitAway()
+        {
+            var now = clock.UtcNow;
+            string? resumedApp;
+            lock (_lock)
+            {
+                if (!_isAway) return;
+
+                // 发出 away 段 [_awayStart, now]（复用 ≥1s 规则）。
+                AppendSegment(SyntheticApps.Away, _awayStart, now);
+
+                _isAway = false;
+
+                // 以当前真实前台重开新段（可能仍是睡前应用，也可能变了）。
+                resumedApp = Normalize(windowMonitor.GetForegroundProcessName());
+                _currentApp = resumedApp;
+                _currentStart = now;
+                Log.Information("退出 away（亮屏/唤醒），恢复前台: {App}", resumedApp ?? "(无)");
+            }
+
+            CurrentAppChanged?.Invoke(resumedApp);
         }
 
         public string? GetCurrentApp()
         {
             lock (_lock)
             {
-                return _currentApp;
+                return _isAway ? null : _currentApp;
             }
         }
 
@@ -93,18 +151,10 @@ namespace Heartbeat.Agent.Services
 
             lock (_lock)
             {
-                if (_currentApp != null && _currentStart != default)
+                // away 期间不封口、不累加；away 段只在 OnExitAway 发出。
+                if (!_isAway && _currentApp != null && _currentStart != default)
                 {
-                    var duration = now - _currentStart;
-                    if (duration.TotalSeconds >= 1)
-                    {
-                        _usages.Add(new AppUsageItem
-                        {
-                            AppName = _currentApp,
-                            StartTime = _currentStart,
-                            EndTime = now
-                        });
-                    }
+                    CloseCurrentSegment(now);
                     _currentStart = now;
                 }
 
@@ -123,10 +173,53 @@ namespace Heartbeat.Agent.Services
             }
         }
 
+        /// <summary>封口当前真实应用段（仅 ≥1s 记录）。调用方必须持有 _lock。</summary>
+        private void CloseCurrentSegment(DateTimeOffset now)
+        {
+            if (_currentApp != null && _currentStart != default)
+                AppendSegment(_currentApp, _currentStart, now);
+        }
+
+        /// <summary>追加一个 ≥1s 的使用段。调用方必须持有 _lock。</summary>
+        private void AppendSegment(string appName, DateTimeOffset start, DateTimeOffset end)
+        {
+            if (start == default) return;
+            var duration = end - start;
+            if (duration.TotalSeconds < 1) return;
+
+            _usages.Add(new AppUsageItem
+            {
+                AppName = appName,
+                StartTime = start,
+                EndTime = end
+            });
+            Log.Debug("应用结束: {App}，时长 {Duration:F1}s", appName, duration.TotalSeconds);
+        }
+
+        /// <summary>命中 AwayProcessNames 的前台进程名归一化为 away 段名（仅改名，不驱动状态机）。</summary>
+        private string? Normalize(string? app)
+        {
+            if (string.IsNullOrEmpty(app)) return app;
+
+            var awayNames = configManager.Current.AwayProcessNames;
+            foreach (var name in awayNames)
+            {
+                if (string.Equals(app, name, StringComparison.OrdinalIgnoreCase))
+                    return SyntheticApps.Away;
+            }
+            return app;
+        }
+
         public void Dispose()
         {
             windowMonitor.ForegroundWindowChanged -= OnForegroundChanged;
             windowMonitor.Stop();
+
+            powerMonitor.DisplayOff -= OnEnterAway;
+            powerMonitor.Suspend -= OnEnterAway;
+            powerMonitor.DisplayOn -= OnExitAway;
+            powerMonitor.Resume -= OnExitAway;
+            powerMonitor.Stop();
             GC.SuppressFinalize(this);
         }
     }

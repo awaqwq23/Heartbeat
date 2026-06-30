@@ -1,4 +1,10 @@
 /**
+ * 合成（伪应用）段标识名，与后端 Heartbeat.Core.SyntheticApps 对应。
+ * 这些不是真实应用，而是采集层用来在时间轴上占位的特殊段。详见 ADR-014。
+ */
+export const AWAY_APP = '__away__'
+
+/**
  * 应用名 → 文字描述 映射表
  * key 不区分大小写，直接添加新行即可扩展
  */

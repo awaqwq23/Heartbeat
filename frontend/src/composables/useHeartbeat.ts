@@ -1,6 +1,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import type { AppInfoResponse, AppUsageResponse, AppSummary, DeviceInfoResponse, DeviceStatusResponse, DailyReportResponse, WeeklyReportResponse } from '../api/index'
 import { fetchPublicDevices, fetchPublicApps, fetchPublicDeviceStatus, fetchPublicUsage, fetchPublicDailyReport, fetchPublicWeeklyReport, fetchPublicKeyFrequency, getTimezoneLabel } from '../api/index'
+import { AWAY_APP } from '../appLabels'
 
 function todayStr(): string {
   const d = new Date()
@@ -26,6 +27,9 @@ export function useHeartbeat(username: string) {
   const weeklyReport = ref<WeeklyReportResponse | null>(null)
   const keyFrequency = ref<{ code: number; count: number }[]>([])
   const loading = ref(false)
+
+  // 是否把"离开"时间（息屏/睡眠/锁屏）计入统计。默认不计入。详见 ADR-014。
+  const includeAway = ref(false)
 
   const appNameMap = computed(() => {
     const map = new Map<number, string>()
@@ -57,9 +61,11 @@ export function useHeartbeat(username: string) {
     return raw.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
   })
 
+  // 应用排行：始终排除 away（排行只展示真实应用）
   const appSummaries = computed<AppSummary[]>(() => {
     if (!dailyReport.value?.apps) return []
     return dailyReport.value.apps
+      .filter(a => a.appName !== AWAY_APP)
       .map(a => ({
         appId: a.appId!,
         appName: a.appName ?? `App ${a.appId}`,
@@ -68,12 +74,22 @@ export function useHeartbeat(username: string) {
       .sort((a, b) => b.totalSeconds - a.totalSeconds)
   })
 
-  const totalSeconds = computed(() => dailyReport.value?.totalSeconds ?? 0)
+  // 当日 away 总秒数（用于开关打开时附加显示）
+  const awaySeconds = computed(() =>
+    dailyReport.value?.apps?.find(a => a.appName === AWAY_APP)?.durationSeconds ?? 0
+  )
+
+  // 主时长 = 非 away 之和；开关打开时再加上 away。前端求和，服务端不再下发 total。
+  const usageSeconds = computed(() => appSummaries.value.reduce((s, a) => s + a.totalSeconds, 0))
+  const totalSeconds = computed(() =>
+    usageSeconds.value + (includeAway.value ? awaySeconds.value : 0)
+  )
   const maxSeconds = computed(() => appSummaries.value[0]?.totalSeconds ?? 1)
 
   const activeHours = computed(() => {
     const hours = new Set<number>()
     for (const u of usageData.value) {
+      if (u.appName === AWAY_APP) continue // away 不算活跃
       const s = u.startTime!.getHours()
       const e = u.endTime!.getHours()
       if (e >= s) {
@@ -85,9 +101,11 @@ export function useHeartbeat(username: string) {
     return hours
   })
 
+  // 周报：同样排除 away，前端求和
   const weeklyAppSummaries = computed<AppSummary[]>(() => {
     if (!weeklyReport.value?.apps) return []
     return weeklyReport.value.apps
+      .filter(a => a.appName !== AWAY_APP)
       .map(a => ({
         appId: a.appId!,
         appName: a.appName ?? `App ${a.appId}`,
@@ -96,7 +114,13 @@ export function useHeartbeat(username: string) {
       .sort((a, b) => b.totalSeconds - a.totalSeconds)
   })
 
-  const weeklyTotalSeconds = computed(() => weeklyReport.value?.totalSeconds ?? 0)
+  const weeklyAwaySeconds = computed(() =>
+    weeklyReport.value?.apps?.find(a => a.appName === AWAY_APP)?.durationSeconds ?? 0
+  )
+  const weeklyUsageSeconds = computed(() => weeklyAppSummaries.value.reduce((s, a) => s + a.totalSeconds, 0))
+  const weeklyTotalSeconds = computed(() =>
+    weeklyUsageSeconds.value + (includeAway.value ? weeklyAwaySeconds.value : 0)
+  )
 
   const timezoneLabel = getTimezoneLabel()
 
@@ -194,10 +218,14 @@ export function useHeartbeat(username: string) {
     lastSeenStr,
     appSummaries,
     totalSeconds,
+    usageSeconds,
+    awaySeconds,
     maxSeconds,
     activeHours,
     weeklyAppSummaries,
     weeklyTotalSeconds,
+    weeklyAwaySeconds,
+    includeAway,
     keyFrequency,
     timezoneLabel,
   }

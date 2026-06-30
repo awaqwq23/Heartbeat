@@ -21,6 +21,7 @@ export const apps: MockApp[] = [
   { id: 4, name: 'Slack' },
   { id: 5, name: 'Terminal' },
   { id: 6, name: 'Figma' },
+  { id: 99, name: '__away__' },
 ]
 
 export const devices: MockDevice[] = [
@@ -35,25 +36,23 @@ export const CURRENT_APP_NAME = 'Visual Studio Code'
 export const dailyAppDurations: { appId: number; appName: string; durationSeconds: number }[] = [
   { appId: 1, appName: 'Visual Studio Code', durationSeconds: 18420 }, // 5h7m
   { appId: 2, appName: 'Google Chrome', durationSeconds: 9360 },        // 2h36m
+  { appId: 99, appName: '__away__', durationSeconds: 5400 },            // 1h30m 离开
   { appId: 4, appName: 'Slack', durationSeconds: 3600 },                // 1h
   { appId: 3, appName: 'Spotify', durationSeconds: 2700 },              // 45m
   { appId: 5, appName: 'Terminal', durationSeconds: 1500 },             // 25m
   { appId: 6, appName: 'Figma', durationSeconds: 600 },                 // 10m
 ]
 
-export const dailyTotalSeconds = dailyAppDurations.reduce((s, a) => s + a.durationSeconds, 0)
-
 /** 一周时长分布（秒），数值约为日报的 5-6 倍。 */
 export const weeklyAppDurations: { appId: number; appName: string; durationSeconds: number }[] = [
   { appId: 1, appName: 'Visual Studio Code', durationSeconds: 95400 },
   { appId: 2, appName: 'Google Chrome', durationSeconds: 52200 },
+  { appId: 99, appName: '__away__', durationSeconds: 28800 },
   { appId: 4, appName: 'Slack', durationSeconds: 19800 },
   { appId: 3, appName: 'Spotify', durationSeconds: 16200 },
   { appId: 5, appName: 'Terminal', durationSeconds: 8400 },
   { appId: 6, appName: 'Figma', durationSeconds: 3600 },
 ]
-
-export const weeklyTotalSeconds = weeklyAppDurations.reduce((s, a) => s + a.durationSeconds, 0)
 
 /**
  * 生成"今天"的 usage 时间段（timeline 用）。
@@ -77,6 +76,7 @@ export function buildTodayUsage(): {
     { appId: 2, minutes: 25 },
     { appId: 1, minutes: 40 },
     { appId: 4, minutes: 15 },
+    { appId: 99, minutes: 55 },
     { appId: 3, minutes: 30 },
     { appId: 1, minutes: 60 },
     { appId: 5, minutes: 20 },

@@ -4,9 +4,7 @@ import {
   devices,
   CURRENT_APP_NAME,
   dailyAppDurations,
-  dailyTotalSeconds,
   weeklyAppDurations,
-  weeklyTotalSeconds,
   buildTodayUsage,
   todayDateStr,
   weekRange,
@@ -61,7 +59,6 @@ export const handlers = [
   http.get(`${API}/users/:username/reports/daily`, () => {
     return HttpResponse.json({
       date: todayDateStr(),
-      totalSeconds: dailyTotalSeconds,
       apps: dailyAppDurations,
     })
   }),
@@ -72,7 +69,6 @@ export const handlers = [
     return HttpResponse.json({
       weekStart,
       weekEnd,
-      totalSeconds: weeklyTotalSeconds,
       apps: weeklyAppDurations,
     })
   }),

@@ -20,5 +20,11 @@ namespace Heartbeat.Agent.Models
             get => _statusUploadIntervalSeconds;
             set => _statusUploadIntervalSeconds = value < 5 ? 5 : value;
         }
+
+        /// <summary>
+        /// 前台进程名命中此列表时，该使用段被归一化为 away 段（仅改名，不驱动 away 状态机）。
+        /// 默认包含锁屏宿主 LockApp。详见 ADR-014。
+        /// </summary>
+        public List<string> AwayProcessNames { get; set; } = ["LockApp"];
     }
 }

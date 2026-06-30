@@ -37,10 +37,12 @@ const {
   lastSeenStr,
   appSummaries,
   totalSeconds,
+  awaySeconds,
   maxSeconds,
   activeHours,
   weeklyAppSummaries,
   weeklyTotalSeconds,
+  includeAway,
   keyFrequency,
   timezoneLabel,
 } = useHeartbeat(props.username)
@@ -79,6 +81,13 @@ const selectedDeviceStr = computed({
           title="数据按浏览器所在时区的日期展示，不代表设备所在时区"
         >{{ timezoneLabel }}</span>
 
+        <button
+          class="glass-control cursor-pointer whitespace-nowrap px-3 py-1.5 text-[0.8rem] transition-colors"
+          :class="includeAway ? 'text-primary' : 'text-muted-foreground hover:text-foreground'"
+          :title="includeAway ? '统计已包含离开时间（息屏/睡眠/锁屏）' : '统计不含离开时间，点击计入'"
+          @click="includeAway = !includeAway"
+        >{{ includeAway ? '含离开' : '不含离开' }}</button>
+
         <a
           v-if="isOwnProfile"
           href="/heartbeat/settings"
@@ -104,6 +113,8 @@ const selectedDeviceStr = computed({
         :lastSeenStr="lastSeenStr"
         :appSummaries="appSummaries"
         :totalSeconds="totalSeconds"
+        :awaySeconds="awaySeconds"
+        :includeAway="includeAway"
       />
 
       <div class="grid grid-cols-1 gap-0 min-[900px]:grid-cols-[1fr_340px] min-[900px]:items-start min-[900px]:gap-5 min-[1200px]:grid-cols-[1fr_420px] min-[1200px]:gap-6">

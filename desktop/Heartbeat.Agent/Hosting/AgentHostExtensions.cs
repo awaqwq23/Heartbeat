@@ -65,6 +65,7 @@ namespace Heartbeat.Agent.Hosting
             services.AddSingleton<IClock, SystemClock>();
             services.AddSingleton<IWindowEventMonitor, WindowsWindowEventMonitor>();
             services.AddSingleton<ILowLevelInputHook, WindowsLowLevelInputHook>();
+            services.AddSingleton<IPowerMonitor, WindowsPowerMonitor>();
 
             // 业务服务
             services.AddSingleton<AppMonitorService>();

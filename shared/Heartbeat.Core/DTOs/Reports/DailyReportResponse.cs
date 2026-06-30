@@ -3,7 +3,6 @@ namespace Heartbeat.Core.DTOs.Reports
     public class DailyReportResponse
     {
         public string Date { get; set; } = string.Empty;
-        public int TotalSeconds { get; set; }
         public List<AppDurationItem> Apps { get; set; } = [];
     }
 

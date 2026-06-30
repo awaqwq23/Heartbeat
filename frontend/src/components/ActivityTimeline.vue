@@ -5,6 +5,7 @@ import type { AppUsageResponse } from '../api/index'
 import { useTimelineDrag } from '../composables/useTimelineDrag'
 import { Card } from '@/components/ui/card'
 import { LayoutGrid, AlignJustify } from 'lucide-vue-next'
+import { AWAY_APP } from '../appLabels'
 
 const props = defineProps<{
   activeHours: Set<number>,
@@ -80,6 +81,17 @@ const handleResize = () => {
 
 interface ParsedSegment { start: number; end: number }
 
+// away（离开）段对应的 appId 集合 —— 由 appName === '__away__' 识别。
+const awayAppIds = computed(() => {
+  const set = new Set<number>()
+  for (const u of props.usageData) {
+    if (u.appId && u.appName === AWAY_APP) set.add(u.appId)
+  }
+  return set
+})
+
+const isAwayApp = (appId: number) => awayAppIds.value.has(appId)
+
 const parsedUsageByApp = computed(() => {
   const map = new Map<number, ParsedSegment[]>()
   for (const u of props.usageData) {
@@ -133,7 +145,8 @@ const detailedRows = computed(() => {
     }
     return {
       appId,
-      name: props.appNameMap.get(appId) || `App ${appId}`,
+      name: isAwayApp(appId) ? '离开' : (props.appNameMap.get(appId) || `App ${appId}`),
+      isAway: isAwayApp(appId),
       usages: visibleUsages
     }
   })
@@ -184,7 +197,8 @@ const minimapActivities = computed(() => {
   const day = 24 * 60 * 60 * 1000
   const dayS = dayStartMs.value
   const rawIntervals: { start: number; end: number }[] = []
-  for (const segments of parsedUsageByApp.value.values()) {
+  for (const [appId, segments] of parsedUsageByApp.value) {
+    if (isAwayApp(appId)) continue // away 不算活跃，不进缩略图
     for (const seg of segments) rawIntervals.push(seg)
   }
   rawIntervals.sort((a, b) => a.start - b.start)
@@ -327,14 +341,16 @@ const minimapActivities = computed(() => {
               class="flex h-10 border-b border-border last:border-b-0"
             >
               <div class="z-[2] flex w-[80px] shrink-0 items-center gap-2 border-r border-border bg-muted px-2 min-[640px]:w-[120px]">
-                <img :src="getIconUrl(row.appId)" class="h-5 w-5 rounded object-contain" @error="($event.target as HTMLImageElement).style.display = 'none'"/>
-                <span class="flex-1 truncate text-[0.75rem] text-foreground" :title="row.name">{{ row.name }}</span>
+                <img v-if="!row.isAway" :src="getIconUrl(row.appId)" class="h-5 w-5 rounded object-contain" @error="($event.target as HTMLImageElement).style.display = 'none'"/>
+                <span v-else class="flex h-5 w-5 shrink-0 items-center justify-center text-muted-foreground">💤</span>
+                <span class="flex-1 truncate text-[0.75rem]" :class="row.isAway ? 'text-muted-foreground' : 'text-foreground'" :title="row.name">{{ row.name }}</span>
               </div>
               <div class="relative flex-1">
                 <div
                   v-for="(seg, idx) in row.usages"
                   :key="idx"
-                  class="absolute top-2.5 h-5 cursor-pointer rounded-sm bg-primary opacity-80 hover:z-[3] hover:opacity-100"
+                  class="absolute top-2.5 h-5 cursor-pointer rounded-sm opacity-80 hover:z-[3] hover:opacity-100"
+                  :class="row.isAway ? 'bg-muted-foreground/40' : 'bg-primary'"
                   :style="{ left: seg.left + '%', width: seg.width + '%' }"
                   :title="seg.title"
                 ></div>

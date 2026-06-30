@@ -680,7 +680,6 @@ export interface IAppUsageResponse {
 
 export class DailyReportResponse implements IDailyReportResponse {
     date?: string;
-    totalSeconds?: number;
     apps?: AppDurationItem[];
 
     [key: string]: any;
@@ -701,7 +700,6 @@ export class DailyReportResponse implements IDailyReportResponse {
                     this[property] = _data[property];
             }
             this.date = _data["date"];
-            this.totalSeconds = _data["totalSeconds"];
             if (Array.isArray(_data["apps"])) {
                 this.apps = [] as any;
                 for (let item of _data["apps"])
@@ -724,7 +722,6 @@ export class DailyReportResponse implements IDailyReportResponse {
                 data[property] = this[property];
         }
         data["date"] = this.date;
-        data["totalSeconds"] = this.totalSeconds;
         if (Array.isArray(this.apps)) {
             data["apps"] = [];
             for (let item of this.apps)
@@ -736,7 +733,6 @@ export class DailyReportResponse implements IDailyReportResponse {
 
 export interface IDailyReportResponse {
     date?: string;
-    totalSeconds?: number;
     apps?: AppDurationItem[];
 
     [key: string]: any;
@@ -1013,7 +1009,6 @@ export interface IUsageUploadRequest {
 export class WeeklyReportResponse implements IWeeklyReportResponse {
     weekStart?: string;
     weekEnd?: string;
-    totalSeconds?: number;
     apps?: AppDurationItem[];
 
     [key: string]: any;
@@ -1035,7 +1030,6 @@ export class WeeklyReportResponse implements IWeeklyReportResponse {
             }
             this.weekStart = _data["weekStart"];
             this.weekEnd = _data["weekEnd"];
-            this.totalSeconds = _data["totalSeconds"];
             if (Array.isArray(_data["apps"])) {
                 this.apps = [] as any;
                 for (let item of _data["apps"])
@@ -1059,7 +1053,6 @@ export class WeeklyReportResponse implements IWeeklyReportResponse {
         }
         data["weekStart"] = this.weekStart;
         data["weekEnd"] = this.weekEnd;
-        data["totalSeconds"] = this.totalSeconds;
         if (Array.isArray(this.apps)) {
             data["apps"] = [];
             for (let item of this.apps)
@@ -1072,7 +1065,6 @@ export class WeeklyReportResponse implements IWeeklyReportResponse {
 export interface IWeeklyReportResponse {
     weekStart?: string;
     weekEnd?: string;
-    totalSeconds?: number;
     apps?: AppDurationItem[];
 
     [key: string]: any;

@@ -17,7 +17,6 @@ namespace Heartbeat.Server.Services
             return new DailyReportResponse
             {
                 Date = date.Date.ToString("yyyy-MM-dd"),
-                TotalSeconds = apps.Sum(a => a.DurationSeconds),
                 Apps = apps
             };
         }
@@ -36,7 +35,6 @@ namespace Heartbeat.Server.Services
             {
                 WeekStart = monday.ToString("yyyy-MM-dd"),
                 WeekEnd = monday.AddDays(6).ToString("yyyy-MM-dd"),
-                TotalSeconds = apps.Sum(a => a.DurationSeconds),
                 Apps = apps
             };
         }

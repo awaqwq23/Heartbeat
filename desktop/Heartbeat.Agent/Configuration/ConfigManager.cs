@@ -137,6 +137,7 @@ namespace Heartbeat.Agent.Configuration
         {
             config.ApiBaseUrl = config.ApiBaseUrl.TrimEnd('/');
             config.AuthServiceBaseUrl = config.AuthServiceBaseUrl.TrimEnd('/');
+            config.AwayProcessNames ??= [];
         }
 
         /// <summary>
@@ -170,6 +171,7 @@ namespace Heartbeat.Agent.Configuration
                 DeviceName = source.DeviceName,
                 UploadIntervalMinutes = source.UploadIntervalMinutes,
                 StatusUploadIntervalSeconds = source.StatusUploadIntervalSeconds,
+                AwayProcessNames = [.. source.AwayProcessNames ?? []],
             };
         }
 

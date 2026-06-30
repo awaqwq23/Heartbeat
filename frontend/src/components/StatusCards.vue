@@ -9,6 +9,8 @@ defineProps<{
   lastSeenStr: string
   appSummaries: { appId: number; appName: string; totalSeconds: number }[]
   totalSeconds: number
+  awaySeconds: number
+  includeAway: boolean
 }>()
 </script>
 
@@ -35,7 +37,9 @@ defineProps<{
       <div class="flex flex-col gap-1.5 px-5">
         <span class="text-xs uppercase tracking-[0.06em] text-muted-foreground">本次存活</span>
         <span class="font-mono text-[1.75rem] font-bold text-foreground">{{ formatDuration(totalSeconds) }}</span>
-        <span class="text-[0.8rem] text-muted-foreground">{{ appSummaries.length }} 个应用</span>
+        <span class="text-[0.8rem] text-muted-foreground">
+          {{ appSummaries.length }} 个应用<template v-if="awaySeconds > 0"> · {{ includeAway ? '含' : '另有' }}离开 {{ formatDuration(awaySeconds) }}</template>
+        </span>
       </div>
     </Card>
 
