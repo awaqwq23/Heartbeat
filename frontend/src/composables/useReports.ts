@@ -93,6 +93,26 @@ export function useReports(
     weeklyReport.value = await fetchPublicWeeklyReport(username, { deviceId: selectedDevice.value, date: selectedDate.value })
   }
 
+  /**
+   * 某个 App 在当前 usageData 内、按窗口标题聚合的时长明细（降序）。
+   * 用于排行点击后的 popup —— App 是聚合单位，标题是段内细节。详见 ADR-015。
+   */
+  function titleBreakdown(appId: number): { title: string; totalSeconds: number; count: number }[] {
+    const byTitle = new Map<string, { totalSeconds: number; count: number }>()
+    for (const u of usageData.value) {
+      if (u.appId !== appId || !u.startTime || !u.endTime) continue
+      const key = u.title && u.title.length > 0 ? u.title : '(无标题)'
+      const secs = Math.round((u.endTime.getTime() - u.startTime.getTime()) / 1000)
+      const cur = byTitle.get(key) ?? { totalSeconds: 0, count: 0 }
+      cur.totalSeconds += secs
+      cur.count += 1
+      byTitle.set(key, cur)
+    }
+    return [...byTitle.entries()]
+      .map(([title, v]) => ({ title, totalSeconds: v.totalSeconds, count: v.count }))
+      .sort((a, b) => b.totalSeconds - a.totalSeconds)
+  }
+
   return {
     usageData,
     includeAway,
@@ -105,6 +125,7 @@ export function useReports(
     weeklyAwaySeconds,
     weeklyTotalSeconds,
     activeHours,
+    titleBreakdown,
     loadUsage,
     loadDaily,
     loadWeekly,

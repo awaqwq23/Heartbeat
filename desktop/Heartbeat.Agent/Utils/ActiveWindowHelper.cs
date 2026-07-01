@@ -11,6 +11,12 @@ namespace Heartbeat.Agent.Utils
         [DllImport("user32.dll")]
         private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetWindowTextLength(IntPtr hWnd);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetWindowText(IntPtr hWnd, System.Text.StringBuilder lpString, int nMaxCount);
+
         // WinEventHook 相关
         private delegate void WinEventDelegate(
             IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
@@ -71,18 +77,18 @@ namespace Heartbeat.Agent.Utils
         private static uint _messageLoopThreadId;
 
         /// <summary>
-        /// 前台窗口切换时触发，参数为新的前台进程名（可能为 null）
+        /// 前台窗口切换时触发，参数为新的前台窗口采样（进程名 + 标题，可能为 None）
         /// </summary>
-        public static event Action<string?>? ForegroundWindowChanged;
+        public static event Action<ForegroundWindow>? ForegroundWindowChanged;
 
         /// <summary>
-        /// 获取当前前台窗口的进程名
+        /// 获取当前前台窗口采样（进程名 + 标题）
         /// </summary>
-        public static string? GetForegroundProcessName()
+        public static ForegroundWindow GetForegroundWindow_()
         {
             IntPtr hwnd = GetForegroundWindow();
-            if (hwnd == IntPtr.Zero) return null;
-            return GetProcessNameFromHwnd(hwnd);
+            if (hwnd == IntPtr.Zero) return ForegroundWindow.None;
+            return new ForegroundWindow(GetProcessNameFromHwnd(hwnd), GetWindowTitle(hwnd));
         }
 
         /// <summary>
@@ -147,8 +153,17 @@ namespace Heartbeat.Agent.Utils
             int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
         {
             // 对于所有事件，都重新获取当前前台窗口，确保准确
-            var processName = GetForegroundProcessName();
-            ForegroundWindowChanged?.Invoke(processName);
+            ForegroundWindowChanged?.Invoke(GetForegroundWindow_());
+        }
+
+        private static string? GetWindowTitle(IntPtr hWnd)
+        {
+            int len = GetWindowTextLength(hWnd);
+            if (len <= 0) return null;
+            var sb = new System.Text.StringBuilder(len + 1);
+            int copied = GetWindowText(hWnd, sb, sb.Capacity);
+            if (copied <= 0) return null;
+            return sb.ToString();
         }
 
         private static string? GetProcessNameFromHwnd(IntPtr hWnd)

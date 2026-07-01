@@ -44,11 +44,16 @@ namespace Heartbeat.Server.Services
                 .OrderByDescending(x => x.EndTime)
                 .FirstOrDefaultAsync();
 
+            // 合并判据与客户端共用同一真源（同 App + 同 Title + 时间相连）。详见 ADR-015。
+            // lastRecord 已按 AppId == firstAppId 过滤，故其 App 名必等于 first.AppName，
+            // 直接复用 first.AppName 避免额外加载 App 导航属性。
             if (lastRecord != null
-                && first.StartTime <= lastRecord.EndTime + UsageMerger.MergeTolerance
+                && UsageMerger.CanMerge(
+                    first.AppName, lastRecord.Title, lastRecord.EndTime,
+                    first.AppName, first.Title, first.StartTime)
                 && first.EndTime >= lastRecord.StartTime)
             {
-                // 批次首条与数据库最新记录同应用且重叠或首尾相连 → 合并
+                // 批次首条与数据库最新记录同应用+同标题且重叠或首尾相连 → 合并
                 if (first.StartTime < lastRecord.StartTime)
                     lastRecord.StartTime = first.StartTime;
                 if (first.EndTime > lastRecord.EndTime)
@@ -65,6 +70,7 @@ namespace Heartbeat.Server.Services
                 {
                     DeviceId = deviceId,
                     AppId = appId,
+                    Title = u.Title,
                     StartTime = u.StartTime,
                     EndTime = u.EndTime,
                     DurationSeconds = (int)(u.EndTime - u.StartTime).TotalSeconds
@@ -98,6 +104,7 @@ namespace Heartbeat.Server.Services
                     Id = x.Id,
                     AppId = x.AppId,
                     AppName = x.App.Name,
+                    Title = x.Title,
                     StartTime = x.StartTime,
                     EndTime = x.EndTime,
                     DurationSeconds = x.DurationSeconds

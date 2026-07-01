@@ -2,8 +2,8 @@ namespace Heartbeat.Agent.Utils
 {
     public interface IWindowEventMonitor
     {
-        event Action<string?>? ForegroundWindowChanged;
-        string? GetForegroundProcessName();
+        event Action<ForegroundWindow>? ForegroundWindowChanged;
+        ForegroundWindow GetForegroundWindow();
         void Start();
         void Stop();
     }
@@ -12,10 +12,10 @@ namespace Heartbeat.Agent.Utils
     {
         private Thread? _hookThread;
 
-        public event Action<string?>? ForegroundWindowChanged;
+        public event Action<ForegroundWindow>? ForegroundWindowChanged;
 
-        public string? GetForegroundProcessName()
-            => ActiveWindowHelper.GetForegroundProcessName();
+        public ForegroundWindow GetForegroundWindow()
+            => ActiveWindowHelper.GetForegroundWindow_();
 
         public void Start()
         {
@@ -39,7 +39,7 @@ namespace Heartbeat.Agent.Utils
             _hookThread?.Join(TimeSpan.FromSeconds(3));
         }
 
-        private void OnChanged(string? processName)
-            => ForegroundWindowChanged?.Invoke(processName);
+        private void OnChanged(ForegroundWindow fw)
+            => ForegroundWindowChanged?.Invoke(fw);
     }
 }

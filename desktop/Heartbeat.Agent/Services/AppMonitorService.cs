@@ -15,6 +15,7 @@ namespace Heartbeat.Agent.Services
     {
         private readonly object _lock = new();
         private string? _currentApp;
+        private string? _currentTitle;
         private DateTimeOffset _currentStart;
         private readonly List<AppUsageItem> _usages = [];
 
@@ -35,12 +36,14 @@ namespace Heartbeat.Agent.Services
             powerMonitor.DisplayOn += OnExitAway;
             powerMonitor.Resume += OnExitAway;
 
-            var initialApp = Normalize(windowMonitor.GetForegroundProcessName());
+            var initial = windowMonitor.GetForegroundWindow();
+            var initialApp = Normalize(initial.ProcessName);
             if (initialApp != null)
             {
                 lock (_lock)
                 {
                     _currentApp = initialApp;
+                    _currentTitle = initial.Title;
                     _currentStart = clock.UtcNow;
                     Log.Information("初始前台应用: {App}", initialApp);
                 }
@@ -65,9 +68,10 @@ namespace Heartbeat.Agent.Services
             return Task.CompletedTask;
         }
 
-        private void OnForegroundChanged(string? rawApp)
+        private void OnForegroundChanged(ForegroundWindow fw)
         {
-            var newApp = Normalize(rawApp);
+            var newApp = Normalize(fw.ProcessName);
+            var newTitle = fw.Title;
             var now = clock.UtcNow;
 
             lock (_lock)
@@ -77,16 +81,19 @@ namespace Heartbeat.Agent.Services
                 if (_isAway)
                     return;
 
-                if (string.Equals(_currentApp, newApp, StringComparison.OrdinalIgnoreCase))
+                // App 或 Title 任一变化都切段（策略 A：先脏后治，详见 ADR-015）。
+                if (string.Equals(_currentApp, newApp, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(_currentTitle, newTitle, StringComparison.Ordinal))
                     return;
 
                 CloseCurrentSegment(now);
 
                 _currentApp = newApp;
+                _currentTitle = newTitle;
                 _currentStart = now;
 
                 if (newApp != null)
-                    Log.Debug("应用切换: {App}", newApp);
+                    Log.Debug("应用切换: {App} / {Title}", newApp, newTitle);
             }
 
             CurrentAppChanged?.Invoke(newApp);
@@ -106,6 +113,7 @@ namespace Heartbeat.Agent.Services
                 _isAway = true;
                 _awayStart = now;
                 _currentApp = null;
+                _currentTitle = null;
                 _currentStart = default;
                 Log.Information("进入 away（息屏/睡眠），封口当前应用段");
             }
@@ -123,13 +131,15 @@ namespace Heartbeat.Agent.Services
                 if (!_isAway) return;
 
                 // 发出 away 段 [_awayStart, now]（复用 ≥1s 规则）。
-                AppendSegment(SyntheticApps.Away, _awayStart, now);
+                AppendSegment(SyntheticApps.Away, null, _awayStart, now);
 
                 _isAway = false;
 
                 // 以当前真实前台重开新段（可能仍是睡前应用，也可能变了）。
-                resumedApp = Normalize(windowMonitor.GetForegroundProcessName());
+                var resumed = windowMonitor.GetForegroundWindow();
+                resumedApp = Normalize(resumed.ProcessName);
                 _currentApp = resumedApp;
+                _currentTitle = resumed.Title;
                 _currentStart = now;
                 Log.Information("退出 away（亮屏/唤醒），恢复前台: {App}", resumedApp ?? "(无)");
             }
@@ -177,11 +187,11 @@ namespace Heartbeat.Agent.Services
         private void CloseCurrentSegment(DateTimeOffset now)
         {
             if (_currentApp != null && _currentStart != default)
-                AppendSegment(_currentApp, _currentStart, now);
+                AppendSegment(_currentApp, _currentTitle, _currentStart, now);
         }
 
         /// <summary>追加一个 ≥1s 的使用段。调用方必须持有 _lock。</summary>
-        private void AppendSegment(string appName, DateTimeOffset start, DateTimeOffset end)
+        private void AppendSegment(string appName, string? title, DateTimeOffset start, DateTimeOffset end)
         {
             if (start == default) return;
             var duration = end - start;
@@ -190,10 +200,11 @@ namespace Heartbeat.Agent.Services
             _usages.Add(new AppUsageItem
             {
                 AppName = appName,
+                Title = title,
                 StartTime = start,
                 EndTime = end
             });
-            Log.Debug("应用结束: {App}，时长 {Duration:F1}s", appName, duration.TotalSeconds);
+            Log.Debug("应用结束: {App} / {Title}，时长 {Duration:F1}s", appName, title, duration.TotalSeconds);
         }
 
         /// <summary>命中 AwayProcessNames 的前台进程名归一化为 away 段名（仅改名，不驱动状态机）。</summary>

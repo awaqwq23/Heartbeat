@@ -24,15 +24,16 @@ public class AppMonitorServiceTests : IDisposable
 
     private sealed class FakeWindowMonitor : IWindowEventMonitor
     {
-        public string? Foreground { get; set; }
-        public event Action<string?>? ForegroundWindowChanged;
-        public string? GetForegroundProcessName() => Foreground;
+        public ForegroundWindow Foreground { get; set; } = ForegroundWindow.None;
+        public event Action<ForegroundWindow>? ForegroundWindowChanged;
+        public ForegroundWindow GetForegroundWindow() => Foreground;
         public void Start() { }
         public void Stop() { }
-        public void Switch(string? app)
+
+        public void Switch(string? app, string? title = null)
         {
-            Foreground = app;
-            ForegroundWindowChanged?.Invoke(app);
+            Foreground = new ForegroundWindow(app, title);
+            ForegroundWindowChanged?.Invoke(Foreground);
         }
     }
 
@@ -64,7 +65,7 @@ public class AppMonitorServiceTests : IDisposable
         Build(string? initialApp = null, ConfigManager? config = null)
     {
         var clock = new FakeClock();
-        var win = new FakeWindowMonitor { Foreground = initialApp };
+        var win = new FakeWindowMonitor { Foreground = new ForegroundWindow(initialApp, null) };
         var power = new FakePowerMonitor();
         var cm = config ?? NewConfig();
         var svc = new AppMonitorService(clock, win, power, cm);
@@ -169,7 +170,7 @@ public class AppMonitorServiceTests : IDisposable
         power.RaiseSuspend();             // 睡眠，封口 vscode
 
         // 唤醒时前台已变成 chrome
-        win.Foreground = "chrome";
+        win.Foreground = new ForegroundWindow("chrome", null);;
         clock.Advance(TimeSpan.FromHours(2));
         power.RaiseResume();
 
@@ -272,5 +273,62 @@ public class AppMonitorServiceTests : IDisposable
         clock.Advance(TimeSpan.FromMinutes(1));
         power.RaiseDisplayOn();
         Assert.Equal("vscode", svc.GetCurrentApp());
+    }
+
+    [Fact]
+    public void TitleChange_SameApp_TriggersSplit()
+    {
+        var (svc, clock, win, _) = Build();
+        win.Switch("msedge", "YouTube");
+
+        clock.Advance(TimeSpan.FromSeconds(60));
+        win.Switch("msedge", "GitHub"); // 同 app 不同标题 → 切段
+
+        clock.Advance(TimeSpan.FromSeconds(30));
+        win.Switch("vscode", "proj");
+
+        var usages = svc.GetAndClearUsages();
+        Assert.Equal(2, usages.Count);
+        Assert.Equal("msedge", usages[0].AppName);
+        Assert.Equal("YouTube", usages[0].Title);
+        Assert.Equal("msedge", usages[1].AppName);
+        Assert.Equal("GitHub", usages[1].Title);
+    }
+
+    [Fact]
+    public void SameApp_SameTitle_DoesNotSplit()
+    {
+        var (svc, clock, win, _) = Build();
+        win.Switch("msedge", "YouTube");
+
+        clock.Advance(TimeSpan.FromSeconds(30));
+        win.Switch("msedge", "YouTube"); // 完全相同 → 不切段
+
+        clock.Advance(TimeSpan.FromSeconds(30));
+        win.Switch("vscode", null);
+
+        var usages = svc.GetAndClearUsages();
+        Assert.Single(usages);
+        Assert.Equal("msedge", usages[0].AppName);
+        Assert.Equal("YouTube", usages[0].Title);
+        Assert.Equal(60, (usages[0].EndTime - usages[0].StartTime).TotalSeconds);
+    }
+
+    [Fact]
+    public void Title_CarriedIntoSegment_AwaySegmentHasNullTitle()
+    {
+        var (svc, clock, win, power) = Build();
+        win.Switch("vscode", "main.cs");
+
+        clock.Advance(TimeSpan.FromSeconds(30));
+        power.RaiseDisplayOff();
+        clock.Advance(TimeSpan.FromMinutes(5));
+        power.RaiseDisplayOn();
+
+        var usages = svc.GetAndClearUsages();
+        Assert.Equal(2, usages.Count);
+        Assert.Equal("main.cs", usages[0].Title);           // 真实段带标题
+        Assert.Equal(SyntheticApps.Away, usages[1].AppName);
+        Assert.Null(usages[1].Title);                        // away 段标题为 null
     }
 }

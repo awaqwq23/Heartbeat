@@ -85,7 +85,7 @@ export async function fetchDevices(): Promise<DeviceInfoResponse[]> {
 
 export async function fetchApps(): Promise<AppInfoResponse[]> {
   try {
-    return await client.apps()
+    return await client.appsAll()
   } catch {
     return []
   }

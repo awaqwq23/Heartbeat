@@ -63,6 +63,7 @@ export function buildTodayUsage(): {
   id: number
   appId: number
   appName: string
+  title: string | null
   startTime: string
   endTime: string
   durationSeconds: number
@@ -70,19 +71,19 @@ export function buildTodayUsage(): {
   const now = new Date()
   const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0, 0)
 
-  // 一串 (appId, 分钟数) 的会话序列，依次首尾相接。
-  const sessions: { appId: number; minutes: number }[] = [
-    { appId: 1, minutes: 50 },
-    { appId: 2, minutes: 25 },
-    { appId: 1, minutes: 40 },
-    { appId: 4, minutes: 15 },
-    { appId: 99, minutes: 55 },
-    { appId: 3, minutes: 30 },
-    { appId: 1, minutes: 60 },
-    { appId: 5, minutes: 20 },
-    { appId: 2, minutes: 35 },
-    { appId: 6, minutes: 10 },
-    { appId: 1, minutes: 45 },
+  // 一串 (appId, 分钟数, 标题) 的会话序列，依次首尾相接。
+  const sessions: { appId: number; minutes: number; title: string | null }[] = [
+    { appId: 1, minutes: 50, title: 'useHeartbeat.ts - heartbeat' },
+    { appId: 2, minutes: 25, title: 'YouTube' },
+    { appId: 1, minutes: 40, title: 'ActivityTimeline.vue - heartbeat' },
+    { appId: 4, minutes: 15, title: '#general' },
+    { appId: 99, minutes: 55, title: null },
+    { appId: 3, minutes: 30, title: 'Lo-fi beats' },
+    { appId: 1, minutes: 60, title: 'UsageService.cs - heartbeat' },
+    { appId: 5, minutes: 20, title: 'pwsh' },
+    { appId: 2, minutes: 35, title: 'GitHub - heartbeat' },
+    { appId: 6, minutes: 10, title: 'Dashboard mockup' },
+    { appId: 1, minutes: 45, title: 'useReports.ts - heartbeat' },
   ]
 
   const appNameById = new Map(apps.map((a) => [a.id, a.name]))
@@ -101,6 +102,7 @@ export function buildTodayUsage(): {
       id: id++,
       appId: s.appId,
       appName: appNameById.get(s.appId) ?? `App ${s.appId}`,
+      title: s.title,
       startTime: start.toISOString(),
       endTime: clampedEnd.toISOString(),
       durationSeconds,

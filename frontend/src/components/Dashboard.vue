@@ -45,6 +45,7 @@ const {
   includeAway,
   keyFrequency,
   timezoneLabel,
+  titleBreakdown,
 } = useHeartbeat(props.username)
 
 // Reka UI Select 用字符串值，selectedDevice 是 number —— 用 computed 双向桥接
@@ -141,6 +142,7 @@ const selectedDeviceStr = computed({
           <TodayRanking
             :appSummaries="appSummaries"
             :maxSeconds="maxSeconds"
+            :titleBreakdown="titleBreakdown"
           />
 
           <WeeklyChart

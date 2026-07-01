@@ -171,4 +171,58 @@ public class UsageMergerTests
         Assert.Equal(originalEnd, input[1].EndTime);
         Assert.Equal(2, input.Count);
     }
+
+    private static AppUsageItem TitledItem(string app, string? title, int startSec, int endSec) => new()
+    {
+        AppName = app,
+        Title = title,
+        StartTime = Base.AddSeconds(startSec),
+        EndTime = Base.AddSeconds(endSec)
+    };
+
+    [Fact]
+    public void SameApp_DifferentTitle_DoesNotMerge()
+    {
+        var input = new List<AppUsageItem>
+        {
+            TitledItem("msedge", "YouTube", 0, 60),
+            TitledItem("msedge", "GitHub", 60, 120) // 同 app 不同标题 → 不合并
+        };
+
+        var result = UsageMerger.Merge(input);
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal("YouTube", result[0].Title);
+        Assert.Equal("GitHub", result[1].Title);
+    }
+
+    [Fact]
+    public void SameApp_SameTitle_Adjacent_Merges()
+    {
+        var input = new List<AppUsageItem>
+        {
+            TitledItem("msedge", "YouTube", 0, 60),
+            TitledItem("msedge", "YouTube", 61, 120) // 同 app 同标题 → 合并
+        };
+
+        var result = UsageMerger.Merge(input);
+
+        Assert.Single(result);
+        Assert.Equal("YouTube", result[0].Title);
+        Assert.Equal(Base.AddSeconds(120), result[0].EndTime);
+    }
+
+    [Fact]
+    public void SameApp_BothNullTitle_Merges()
+    {
+        var input = new List<AppUsageItem>
+        {
+            TitledItem("vscode", null, 0, 60),
+            TitledItem("vscode", null, 61, 120)
+        };
+
+        var result = UsageMerger.Merge(input);
+
+        Assert.Single(result);
+    }
 }
