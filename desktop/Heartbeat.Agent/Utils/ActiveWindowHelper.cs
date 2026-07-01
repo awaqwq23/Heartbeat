@@ -89,9 +89,15 @@ namespace Heartbeat.Agent.Utils
         /// <summary>
         /// 获取当前前台窗口采样（进程名 + 标题）
         /// </summary>
-        public static ForegroundWindow GetForegroundWindow_()
+        public static ForegroundWindow GetForegroundWindowSample()
         {
             IntPtr hwnd = GetForegroundWindow();
+            return SampleWindow(hwnd);
+        }
+
+        /// <summary>给定窗口句柄采样（进程名 + 标题）。</summary>
+        private static ForegroundWindow SampleWindow(IntPtr hwnd)
+        {
             if (hwnd == IntPtr.Zero) return ForegroundWindow.None;
             return new ForegroundWindow(GetProcessNameFromHwnd(hwnd), GetWindowTitle(hwnd));
         }
@@ -167,16 +173,18 @@ namespace Heartbeat.Agent.Utils
             IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
             int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
         {
+            IntPtr fg = GetForegroundWindow();
+
             if (eventType == EVENT_OBJECT_NAMECHANGE)
             {
                 // NAMECHANGE 对任意窗口/子控件高频触发。只关心"当前前台窗口本身"的标题变化：
                 // 过滤掉子控件（idObject/idChild）和非前台窗口，否则引入大量噪声与开销。
                 if (idObject != OBJID_WINDOW || idChild != CHILDID_SELF) return;
-                if (hwnd != GetForegroundWindow()) return;
+                if (hwnd != fg) return;
             }
 
-            // FOREGROUND / MINIMIZE / 通过过滤的 NAMECHANGE：重新取当前前台窗口采样后上报。
-            ForegroundWindowChanged?.Invoke(GetForegroundWindow_());
+            // FOREGROUND / MINIMIZE / 通过过滤的 NAMECHANGE：以当前前台窗口采样后上报。
+            ForegroundWindowChanged?.Invoke(SampleWindow(fg));
         }
 
         private static string? GetWindowTitle(IntPtr hWnd)
@@ -189,18 +197,30 @@ namespace Heartbeat.Agent.Utils
             return sb.ToString();
         }
 
+        // 进程名单条缓存：同一前台窗口在一次"停留"内 hwnd 不变，
+        // 高频 NAMECHANGE（标题抖动）时命中缓存，省去 Process.GetProcessById 开销。
+        private static IntPtr _cachedHwnd;
+        private static string? _cachedProcessName;
+
         private static string? GetProcessNameFromHwnd(IntPtr hWnd)
         {
+            if (hWnd == _cachedHwnd) return _cachedProcessName;
+
             GetWindowThreadProcessId(hWnd, out uint pid);
+            string? name;
             try
             {
                 using var process = Process.GetProcessById((int)pid);
-                return process.ProcessName;
+                name = process.ProcessName;
             }
             catch
             {
-                return null;
+                name = null;
             }
+
+            _cachedHwnd = hWnd;
+            _cachedProcessName = name;
+            return name;
         }
     }
 }

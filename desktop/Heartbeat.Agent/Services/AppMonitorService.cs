@@ -1,4 +1,5 @@
 using Heartbeat.Agent.Configuration;
+using Heartbeat.Agent.Models;
 using Heartbeat.Agent.Utils;
 using Heartbeat.Core;
 using Heartbeat.Core.DTOs.Usage;
@@ -23,11 +24,18 @@ namespace Heartbeat.Agent.Services
         private bool _isAway;
         private DateTimeOffset _awayStart;
 
+        // AwayProcessNames 的快照，避免热路径（高频 NAMECHANGE）每次 clone 整个配置。
+        // 仅在配置变更时刷新（ConfigChanged 事件），读取无锁。
+        private volatile string[] _awayProcessNames = [];
+
         public event Action<string?>? CurrentAppChanged;
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
             Log.Information("应用监测服务启动");
+
+            _awayProcessNames = [.. configManager.Current.AwayProcessNames];
+            configManager.ConfigChanged += OnConfigChanged;
 
             windowMonitor.ForegroundWindowChanged += OnForegroundChanged;
 
@@ -57,6 +65,7 @@ namespace Heartbeat.Agent.Services
         public Task StopAsync(CancellationToken cancellationToken)
         {
             Log.Information("应用监测服务停止");
+            configManager.ConfigChanged -= OnConfigChanged;
             windowMonitor.ForegroundWindowChanged -= OnForegroundChanged;
             windowMonitor.Stop();
 
@@ -207,12 +216,17 @@ namespace Heartbeat.Agent.Services
             Log.Debug("应用结束: {App} / {Title}，时长 {Duration:F1}s", appName, title, duration.TotalSeconds);
         }
 
+        private void OnConfigChanged(AgentConfig config)
+        {
+            _awayProcessNames = [.. config.AwayProcessNames ?? []];
+        }
+
         /// <summary>命中 AwayProcessNames 的前台进程名归一化为 away 段名（仅改名，不驱动状态机）。</summary>
         private string? Normalize(string? app)
         {
             if (string.IsNullOrEmpty(app)) return app;
 
-            var awayNames = configManager.Current.AwayProcessNames;
+            var awayNames = _awayProcessNames;
             foreach (var name in awayNames)
             {
                 if (string.Equals(app, name, StringComparison.OrdinalIgnoreCase))
@@ -223,6 +237,7 @@ namespace Heartbeat.Agent.Services
 
         public void Dispose()
         {
+            configManager.ConfigChanged -= OnConfigChanged;
             windowMonitor.ForegroundWindowChanged -= OnForegroundChanged;
             windowMonitor.Stop();
 

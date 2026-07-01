@@ -144,16 +144,25 @@ namespace Heartbeat.Agent.Utils
 
         private IntPtr KeyboardCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
+            // 回调内吞异常：异常若穿过 P/Invoke 边界，行为未定义且可能导致系统摘钩。
+            // 无论如何都要走到 CallNextHookEx，不破坏钩子链。
             if (nCode >= 0)
             {
-                int msg = (int)wParam;
-                var data = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
-                int vk = (int)data.vkCode;
+                try
+                {
+                    int msg = (int)wParam;
+                    var data = Marshal.PtrToStructure<KBDLLHOOKSTRUCT>(lParam);
+                    int vk = (int)data.vkCode;
 
-                if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)
-                    KeyDown?.Invoke(vk);
-                else if (msg == WM_KEYUP || msg == WM_SYSKEYUP)
-                    KeyUp?.Invoke(vk);
+                    if (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN)
+                        KeyDown?.Invoke(vk);
+                    else if (msg == WM_KEYUP || msg == WM_SYSKEYUP)
+                        KeyUp?.Invoke(vk);
+                }
+                catch (Exception ex)
+                {
+                    Serilog.Log.Error(ex, "键盘钩子回调异常");
+                }
             }
             return CallNextHookEx(_keyboardHook, nCode, wParam, lParam);
         }
@@ -162,24 +171,31 @@ namespace Heartbeat.Agent.Utils
         {
             if (nCode >= 0)
             {
-                int msg = (int)wParam;
-                switch (msg)
+                try
                 {
-                    case WM_LBUTTONDOWN:
-                        MouseButton?.Invoke(1);
-                        break;
-                    case WM_RBUTTONDOWN:
-                        MouseButton?.Invoke(2);
-                        break;
-                    case WM_MBUTTONDOWN:
-                        MouseButton?.Invoke(3);
-                        break;
-                    case WM_MOUSEWHEEL:
-                        var data = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
-                        // 高 16 位为有符号 delta
-                        short delta = (short)((data.mouseData >> 16) & 0xFFFF);
-                        Scroll?.Invoke(delta);
-                        break;
+                    int msg = (int)wParam;
+                    switch (msg)
+                    {
+                        case WM_LBUTTONDOWN:
+                            MouseButton?.Invoke(1);
+                            break;
+                        case WM_RBUTTONDOWN:
+                            MouseButton?.Invoke(2);
+                            break;
+                        case WM_MBUTTONDOWN:
+                            MouseButton?.Invoke(3);
+                            break;
+                        case WM_MOUSEWHEEL:
+                            var data = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
+                            // 高 16 位为有符号 delta
+                            short delta = (short)((data.mouseData >> 16) & 0xFFFF);
+                            Scroll?.Invoke(delta);
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Serilog.Log.Error(ex, "鼠标钩子回调异常");
                 }
             }
             return CallNextHookEx(_mouseHook, nCode, wParam, lParam);

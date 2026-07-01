@@ -331,4 +331,36 @@ public class AppMonitorServiceTests : IDisposable
         Assert.Equal(SyntheticApps.Away, usages[1].AppName);
         Assert.Null(usages[1].Title);                        // away 段标题为 null
     }
+
+    [Fact]
+    public void AwayProcessNames_HotReload_TakesEffectAfterConfigChange()
+    {
+        // 启动时 AwayProcessNames 为空 → LockApp 视为普通应用
+        var clock = new FakeClock();
+        var win = new FakeWindowMonitor { Foreground = new ForegroundWindow("vscode", null) };
+        var power = new FakePowerMonitor();
+        var cm = NewConfig("__none__"); // 不含 LockApp
+        var svc = new AppMonitorService(clock, win, power, cm);
+        svc.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+        clock.Advance(TimeSpan.FromSeconds(30));
+        win.Switch("LockApp");                 // 此时未配置 → 当普通 app
+        clock.Advance(TimeSpan.FromSeconds(30));
+
+        // 运行中更新配置：把 LockApp 加入 AwayProcessNames，应触发快照热刷新
+        cm.Update(c => c.AwayProcessNames = ["LockApp"]);
+
+        win.Switch("vscode");                  // 收尾封口 LockApp 段
+        clock.Advance(TimeSpan.FromSeconds(30));
+        win.Switch("chrome");                  // 封口 vscode 段
+        clock.Advance(TimeSpan.FromSeconds(30));
+        win.Switch("LockApp");                 // 配置已生效 → 应归一化为 away
+        clock.Advance(TimeSpan.FromSeconds(30));
+        win.Switch("vscode");
+
+        var usages = svc.GetAndClearUsages();
+        // 第一个 LockApp 段(配置生效前)保留原名；第二个被归一化为 away
+        Assert.Contains(usages, u => u.AppName == "LockApp");
+        Assert.Contains(usages, u => u.AppName == SyntheticApps.Away);
+    }
 }

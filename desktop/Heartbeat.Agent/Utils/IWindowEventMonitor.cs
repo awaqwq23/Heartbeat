@@ -15,7 +15,7 @@ namespace Heartbeat.Agent.Utils
         public event Action<ForegroundWindow>? ForegroundWindowChanged;
 
         public ForegroundWindow GetForegroundWindow()
-            => ActiveWindowHelper.GetForegroundWindow_();
+            => ActiveWindowHelper.GetForegroundWindowSample();
 
         public void Start()
         {
