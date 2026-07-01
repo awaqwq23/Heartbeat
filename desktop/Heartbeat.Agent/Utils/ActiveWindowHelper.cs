@@ -67,13 +67,18 @@ namespace Heartbeat.Agent.Utils
         private const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
         private const uint EVENT_SYSTEM_MINIMIZESTART = 0x0016;
         private const uint EVENT_SYSTEM_MINIMIZEEND = 0x0017;
+        private const uint EVENT_OBJECT_NAMECHANGE = 0x800C;
         private const uint WINEVENT_OUTOFCONTEXT = 0x0000;
         private const uint WM_QUIT = 0x0012;
+
+        private const int OBJID_WINDOW = 0;
+        private const int CHILDID_SELF = 0;
 
         private static WinEventDelegate? _winEventDelegate;
         private static IntPtr _foregroundHook;
         private static IntPtr _minimizeStartHook;
         private static IntPtr _minimizeEndHook;
+        private static IntPtr _nameChangeHook;
         private static uint _messageLoopThreadId;
 
         /// <summary>
@@ -119,6 +124,14 @@ namespace Heartbeat.Agent.Utils
                 0, 0,
                 WINEVENT_OUTOFCONTEXT);
 
+            // 标题变化（同一前台窗口内切 tab / 改标题）。详见 ADR-015。
+            // 此事件对任意窗口高频触发，回调里严格过滤到"当前前台窗口 + 窗口对象本身"。
+            _nameChangeHook = SetWinEventHook(
+                EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_NAMECHANGE,
+                IntPtr.Zero, _winEventDelegate,
+                0, 0,
+                WINEVENT_OUTOFCONTEXT);
+
             // 运行消息循环（阻塞当前线程）
             int ret;
             while ((ret = GetMessage(out MSG msg, IntPtr.Zero, 0, 0)) != 0)
@@ -132,9 +145,11 @@ namespace Heartbeat.Agent.Utils
             if (_foregroundHook != IntPtr.Zero) UnhookWinEvent(_foregroundHook);
             if (_minimizeStartHook != IntPtr.Zero) UnhookWinEvent(_minimizeStartHook);
             if (_minimizeEndHook != IntPtr.Zero) UnhookWinEvent(_minimizeEndHook);
+            if (_nameChangeHook != IntPtr.Zero) UnhookWinEvent(_nameChangeHook);
             _foregroundHook = IntPtr.Zero;
             _minimizeStartHook = IntPtr.Zero;
             _minimizeEndHook = IntPtr.Zero;
+            _nameChangeHook = IntPtr.Zero;
         }
 
         /// <summary>
@@ -152,7 +167,15 @@ namespace Heartbeat.Agent.Utils
             IntPtr hWinEventHook, uint eventType, IntPtr hwnd,
             int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
         {
-            // 对于所有事件，都重新获取当前前台窗口，确保准确
+            if (eventType == EVENT_OBJECT_NAMECHANGE)
+            {
+                // NAMECHANGE 对任意窗口/子控件高频触发。只关心"当前前台窗口本身"的标题变化：
+                // 过滤掉子控件（idObject/idChild）和非前台窗口，否则引入大量噪声与开销。
+                if (idObject != OBJID_WINDOW || idChild != CHILDID_SELF) return;
+                if (hwnd != GetForegroundWindow()) return;
+            }
+
+            // FOREGROUND / MINIMIZE / 通过过滤的 NAMECHANGE：重新取当前前台窗口采样后上报。
             ForegroundWindowChanged?.Invoke(GetForegroundWindow_());
         }
 
