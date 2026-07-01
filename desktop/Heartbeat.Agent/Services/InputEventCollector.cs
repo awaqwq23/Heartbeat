@@ -9,9 +9,10 @@ namespace Heartbeat.Agent.Services
     /// 输入事件采集服务。在专用线程上运行低级键鼠钩子（与 WinEvent 线程隔离），
     /// 将原始钩子事件翻译为 InputEventBuffer 的语义调用。详见 ADR-012。
     /// </summary>
-    public sealed class InputEventCollector(IClock clock, ILowLevelInputHook hook) : IHostedService, IDisposable
+    public sealed class InputEventCollector(IClock clock, ILowLevelInputHook hook, IInputActivitySignal inputActivity) : IHostedService, IDisposable
     {
         private readonly ILowLevelInputHook _hook = hook;
+        private readonly IInputActivitySignal _inputActivity = inputActivity;
         private readonly InputEventBuffer _buffer = new(clock);
         private Thread? _hookThread;
 
@@ -59,7 +60,12 @@ namespace Heartbeat.Agent.Services
         // 回调保持最小工作：仅转发给 buffer（buffer 内部为并发安全的轻量操作）
         private void OnKeyDown(int vk) => _buffer.OnKeyDown(vk);
         private void OnKeyUp(int vk) => _buffer.OnKeyUp(vk);
-        private void OnMouseButton(short code) => _buffer.OnMouseButton(code);
+        private void OnMouseButton(short code)
+        {
+            // 点击（含触摸板点击）标记输入活动，供标题变化门控使用（ADR-016）。
+            _inputActivity.MarkClick();
+            _buffer.OnMouseButton(code);
+        }
         private void OnScroll(int delta) => _buffer.OnScroll(delta);
 
         private void Unsubscribe()

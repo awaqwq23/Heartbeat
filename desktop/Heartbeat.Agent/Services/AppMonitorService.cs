@@ -12,8 +12,12 @@ namespace Heartbeat.Agent.Services
         IClock clock,
         IWindowEventMonitor windowMonitor,
         IPowerMonitor powerMonitor,
+        IInputActivitySignal inputActivity,
         ConfigManager configManager) : IHostedService, IDisposable
     {
+        // 标题变化门控窗口：标题变化前此时段内有点击才切段（ADR-016）。
+        private static readonly TimeSpan TitleGateWindow = TimeSpan.FromSeconds(1);
+
         private readonly object _lock = new();
         private string? _currentApp;
         private string? _currentTitle;
@@ -90,10 +94,21 @@ namespace Heartbeat.Agent.Services
                 if (_isAway)
                     return;
 
-                // App 或 Title 任一变化都切段（策略 A：先脏后治，详见 ADR-015）。
-                if (string.Equals(_currentApp, newApp, StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(_currentTitle, newTitle, StringComparison.Ordinal))
+                var appSame = string.Equals(_currentApp, newApp, StringComparison.OrdinalIgnoreCase);
+                var titleSame = string.Equals(_currentTitle, newTitle, StringComparison.Ordinal);
+
+                // 完全没变：忽略。
+                if (appSame && titleSame)
                     return;
+
+                // App 没变、仅标题变：门控（ADR-016）。
+                // 只有标题变化前 1s 内有点击（含触摸板），才认为是人为切换而切段；
+                // 否则视为程序自身抖动（spinner/后台刷新/自动播放），只更新当前标题、不切段。
+                if (appSame && !inputActivity.ClickedWithin(TitleGateWindow))
+                {
+                    _currentTitle = newTitle;
+                    return;
+                }
 
                 CloseCurrentSegment(now);
 

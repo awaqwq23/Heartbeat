@@ -51,6 +51,14 @@ public class AppMonitorServiceTests : IDisposable
         public void RaiseResume() => Resume?.Invoke();
     }
 
+    /// <summary>可控的点击门控信号。默认视为"有点击"，使非门控测试行为不变。</summary>
+    private sealed class FakeInputActivity : IInputActivitySignal
+    {
+        public bool Clicked { get; set; } = true;
+        public void MarkClick() => Clicked = true;
+        public bool ClickedWithin(TimeSpan window) => Clicked;
+    }
+
     private ConfigManager NewConfig(params string[] awayNames)
     {
         var tempPath = Path.Combine(Path.GetTempPath(), $"heartbeat-cfg-{Guid.NewGuid()}.json");
@@ -61,22 +69,23 @@ public class AppMonitorServiceTests : IDisposable
         return cm;
     }
 
-    private (AppMonitorService svc, FakeClock clock, FakeWindowMonitor win, FakePowerMonitor power)
+    private (AppMonitorService svc, FakeClock clock, FakeWindowMonitor win, FakePowerMonitor power, FakeInputActivity input)
         Build(string? initialApp = null, ConfigManager? config = null)
     {
         var clock = new FakeClock();
         var win = new FakeWindowMonitor { Foreground = new ForegroundWindow(initialApp, null) };
         var power = new FakePowerMonitor();
+        var input = new FakeInputActivity();
         var cm = config ?? NewConfig();
-        var svc = new AppMonitorService(clock, win, power, cm);
+        var svc = new AppMonitorService(clock, win, power, input, cm);
         svc.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
-        return (svc, clock, win, power);
+        return (svc, clock, win, power, input);
     }
 
     [Fact]
     public void NormalSwitch_RecordsSegment()
     {
-        var (svc, clock, win, _) = Build("vscode");
+        var (svc, clock, win, _, _) = Build("vscode");
 
         clock.Advance(TimeSpan.FromSeconds(60));
         win.Switch("chrome");
@@ -90,7 +99,7 @@ public class AppMonitorServiceTests : IDisposable
     [Fact]
     public void DisplayOff_ClosesCurrentSegment_AtEventTime()
     {
-        var (svc, clock, _, power) = Build("vscode");
+        var (svc, clock, _, power, _) = Build("vscode");
 
         clock.Advance(TimeSpan.FromSeconds(30));
         power.RaiseDisplayOff();          // 封口 vscode 在 +30s
@@ -115,7 +124,7 @@ public class AppMonitorServiceTests : IDisposable
     [Fact]
     public void WhileAway_ForegroundChanges_DoNotLeak()
     {
-        var (svc, clock, win, power) = Build("vscode");
+        var (svc, clock, win, power, _) = Build("vscode");
 
         clock.Advance(TimeSpan.FromSeconds(10));
         power.RaiseDisplayOff();
@@ -140,7 +149,7 @@ public class AppMonitorServiceTests : IDisposable
     [Fact]
     public void GetAndClearUsages_WhileAway_DoesNotCloseSegment()
     {
-        var (svc, clock, _, power) = Build("vscode");
+        var (svc, clock, _, power, _) = Build("vscode");
 
         clock.Advance(TimeSpan.FromSeconds(20));
         power.RaiseDisplayOff();
@@ -164,7 +173,7 @@ public class AppMonitorServiceTests : IDisposable
     [Fact]
     public void Resume_ReopensCurrentForegroundApp()
     {
-        var (svc, clock, win, power) = Build("vscode");
+        var (svc, clock, win, power, _) = Build("vscode");
 
         clock.Advance(TimeSpan.FromSeconds(30));
         power.RaiseSuspend();             // 睡眠，封口 vscode
@@ -189,7 +198,7 @@ public class AppMonitorServiceTests : IDisposable
     [Fact]
     public void RepeatedEnterSignals_Ignored_SingleAwaySegment()
     {
-        var (svc, clock, _, power) = Build("vscode");
+        var (svc, clock, _, power, _) = Build("vscode");
 
         clock.Advance(TimeSpan.FromSeconds(10));
         power.RaiseDisplayOff();          // 进入 away @ +10s
@@ -212,7 +221,7 @@ public class AppMonitorServiceTests : IDisposable
     [Fact]
     public void LockApp_NormalizedToAway_DoesNotDriveStateMachine()
     {
-        var (svc, clock, win, _) = Build("vscode", NewConfig("LockApp"));
+        var (svc, clock, win, _, _) = Build("vscode", NewConfig("LockApp"));
 
         clock.Advance(TimeSpan.FromSeconds(30));
         win.Switch("LockApp");            // 锁屏宿主成为前台 → 改名，但不进入 away 状态
@@ -234,7 +243,7 @@ public class AppMonitorServiceTests : IDisposable
     public void LockApp_WhileNotInAwayList_TreatedAsNormalApp()
     {
         // 未配置 AwayProcessNames（清空），LockApp 当普通应用
-        var (svc, clock, win, _) = Build("vscode", NewConfig("__none__"));
+        var (svc, clock, win, _, _) = Build("vscode", NewConfig("__none__"));
 
         clock.Advance(TimeSpan.FromSeconds(30));
         win.Switch("LockApp");
@@ -250,7 +259,7 @@ public class AppMonitorServiceTests : IDisposable
     [Fact]
     public void SubSecondSegment_NotRecorded()
     {
-        var (svc, clock, win, _) = Build("vscode");
+        var (svc, clock, win, _, _) = Build("vscode");
 
         clock.Advance(TimeSpan.FromMilliseconds(500)); // <1s
         win.Switch("chrome");
@@ -262,7 +271,7 @@ public class AppMonitorServiceTests : IDisposable
     [Fact]
     public void GetCurrentApp_WhileAway_ReturnsNull()
     {
-        var (svc, clock, _, power) = Build("vscode");
+        var (svc, clock, _, power, _) = Build("vscode");
 
         Assert.Equal("vscode", svc.GetCurrentApp());
 
@@ -278,7 +287,7 @@ public class AppMonitorServiceTests : IDisposable
     [Fact]
     public void TitleChange_SameApp_TriggersSplit()
     {
-        var (svc, clock, win, _) = Build();
+        var (svc, clock, win, _, _) = Build();
         win.Switch("msedge", "YouTube");
 
         clock.Advance(TimeSpan.FromSeconds(60));
@@ -298,7 +307,7 @@ public class AppMonitorServiceTests : IDisposable
     [Fact]
     public void SameApp_SameTitle_DoesNotSplit()
     {
-        var (svc, clock, win, _) = Build();
+        var (svc, clock, win, _, _) = Build();
         win.Switch("msedge", "YouTube");
 
         clock.Advance(TimeSpan.FromSeconds(30));
@@ -317,7 +326,7 @@ public class AppMonitorServiceTests : IDisposable
     [Fact]
     public void Title_CarriedIntoSegment_AwaySegmentHasNullTitle()
     {
-        var (svc, clock, win, power) = Build();
+        var (svc, clock, win, power, _) = Build();
         win.Switch("vscode", "main.cs");
 
         clock.Advance(TimeSpan.FromSeconds(30));
@@ -340,7 +349,7 @@ public class AppMonitorServiceTests : IDisposable
         var win = new FakeWindowMonitor { Foreground = new ForegroundWindow("vscode", null) };
         var power = new FakePowerMonitor();
         var cm = NewConfig("__none__"); // 不含 LockApp
-        var svc = new AppMonitorService(clock, win, power, cm);
+        var svc = new AppMonitorService(clock, win, power, new FakeInputActivity(), cm);
         svc.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
 
         clock.Advance(TimeSpan.FromSeconds(30));
@@ -362,5 +371,49 @@ public class AppMonitorServiceTests : IDisposable
         // 第一个 LockApp 段(配置生效前)保留原名；第二个被归一化为 away
         Assert.Contains(usages, u => u.AppName == "LockApp");
         Assert.Contains(usages, u => u.AppName == SyntheticApps.Away);
+    }
+
+    [Fact]
+    public void TitleChange_WithoutClick_DoesNotSplit()
+    {
+        // 同 app 标题变化、但门控无点击 → 视为程序自身抖动，不切段（ADR-016）
+        var (svc, clock, win, _, input) = Build();
+        input.Clicked = false;
+        win.Switch("WindowsTerminal", "✳ Claude Code");
+
+        clock.Advance(TimeSpan.FromSeconds(30));
+        win.Switch("WindowsTerminal", "⠐ Claude Code"); // spinner 抖动，无点击
+
+        clock.Advance(TimeSpan.FromSeconds(30));
+        input.Clicked = true;
+        win.Switch("vscode", "main.cs");                // app 变，封口
+
+        var usages = svc.GetAndClearUsages();
+        // 只应有一段 WindowsTerminal（spinner 抖动没切段），标题为最新值
+        var terminalSegs = usages.Where(u => u.AppName == "WindowsTerminal").ToList();
+        Assert.Single(terminalSegs);
+        Assert.Equal("⠐ Claude Code", terminalSegs[0].Title); // 未切段但当前标题被更新为最新
+        Assert.Equal(60, (terminalSegs[0].EndTime - terminalSegs[0].StartTime).TotalSeconds);
+    }
+
+    [Fact]
+    public void TitleChange_WithClick_Splits()
+    {
+        // 同 app 标题变化、门控有点击 → 人为切 tab，切段（ADR-016）
+        var (svc, clock, win, _, input) = Build();
+        input.Clicked = true;
+        win.Switch("msedge", "YouTube");
+
+        clock.Advance(TimeSpan.FromSeconds(30));
+        win.Switch("msedge", "GitHub");                 // 有点击 → 切段
+
+        clock.Advance(TimeSpan.FromSeconds(30));
+        win.Switch("vscode", "x");
+
+        var usages = svc.GetAndClearUsages();
+        var edgeSegs = usages.Where(u => u.AppName == "msedge").ToList();
+        Assert.Equal(2, edgeSegs.Count);
+        Assert.Equal("YouTube", edgeSegs[0].Title);
+        Assert.Equal("GitHub", edgeSegs[1].Title);
     }
 }
