@@ -4,7 +4,8 @@
 
 ## Date: 2026-07-01
 
-(pending implementation commit hash)
+[`407bfb4`](https://github.com/shenxianovo/heartbeat/commit/407bfb4) — feat: capture window title as a segment-level dimension
+[`f70ba58`](https://github.com/shenxianovo/heartbeat/commit/f70ba58) — fix: capture same-window title changes via EVENT_OBJECT_NAMECHANGE
 
 ## Context
 
@@ -38,6 +39,8 @@ Merge logic exists in two places (see the deferred half of ADR review candidate 
 ## Decision
 
 1. **Collection** — introduce `ForegroundWindow { ProcessName, Title }` (a multi-signal container). `ActiveWindowHelper` reads `GetWindowText`; `IWindowEventMonitor` carries `ForegroundWindow`. `AppMonitorService` tracks `_currentTitle` and splits a segment when App **or** Title changes. Away segments carry `Title = null`.
+
+   **Title-change events are load-bearing.** `EVENT_SYSTEM_FOREGROUND` only fires when the foreground *window* changes — switching tabs *within* the same window (e.g. Edge YouTube → GitHub) does not change the foreground window, only its title, so it fires nothing. Without also subscribing `EVENT_OBJECT_NAMECHANGE`, the "Title changed" split can never trigger for same-window switches and the whole title dimension is half-dead (only updates on app switches). We therefore subscribe `EVENT_OBJECT_NAMECHANGE` as well, with strict callback filtering — only `OBJID_WINDOW` + `CHILDID_SELF` (the window itself, not child controls) **and** only when `hwnd == GetForegroundWindow()` (ignore the flood of background-window name changes). This event is high-frequency; the filter is what keeps it from swamping the pipeline.
 2. **Shared kernel** — `AppUsageItem` gains `Title` (nullable). `UsageMerger` exposes `CanMerge(app, title, end, app, title, start)` as the single merge predicate (same AppName case-insensitive + same Title ordinal + within tolerance); `Merge` uses it and preserves title.
 3. **Server** — `AppUsage` entity + `AppUsageResponse` gain `Title`; EF migration adds a nullable `Title text` column. `SaveUsageAsync` uses `UsageMerger.CanMerge` for the first-record seam and persists title; `GetUsageAsync` projects it.
 4. **Frontend** — `useReports.titleBreakdown(appId)` aggregates the current day's segments by title (duration + count). `TodayRanking` wraps each row in a popover showing that app's per-title breakdown — App stays the aggregate unit in the main view, title detail is one click away. Client regenerated from live OpenAPI via NSwag.
@@ -57,7 +60,7 @@ Merge logic exists in two places (see the deferred half of ADR review candidate 
 ## References
 
 - `desktop/Heartbeat.Agent/Utils/ForegroundWindow.cs` — multi-signal container
-- `desktop/Heartbeat.Agent/Utils/ActiveWindowHelper.cs` — `GetWindowText` capture
+- `desktop/Heartbeat.Agent/Utils/ActiveWindowHelper.cs` — `GetWindowText` capture + `EVENT_OBJECT_NAMECHANGE` subscription with foreground/window filtering
 - `desktop/Heartbeat.Agent/Services/AppMonitorService.cs` — App-or-Title split, title into segment
 - `shared/Heartbeat.Core/UsageMerger.cs` — `CanMerge` shared predicate
 - `server/Heartbeat.Server/Migrations/20260701075246_AddAppUsageTitle.cs` — Title column
