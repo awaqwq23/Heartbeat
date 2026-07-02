@@ -2,7 +2,8 @@ namespace Heartbeat.Core.DTOs.Apps
 {
     public class AppUsageResponse
     {
-        public long Id { get; set; }
+        /// <summary>段 Id（UUIDv7，采集端生成，ADR-017）。</summary>
+        public Guid Id { get; set; }
         public long AppId { get; set; }
         public string AppName { get; set; } = string.Empty;
         public string? Title { get; set; }

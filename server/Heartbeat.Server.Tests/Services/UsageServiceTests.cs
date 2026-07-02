@@ -1,3 +1,4 @@
+using Heartbeat.Core;
 using Heartbeat.Core.DTOs.Usage;
 using Heartbeat.Server.Data;
 using Heartbeat.Server.Entities;
@@ -33,8 +34,21 @@ public class UsageServiceTests(PostgresContainerFixture fixture) : PostgresTestB
         EndTime = end
     };
 
+    private ActivitySegment SystemSegment(long appId, string appName, DateTimeOffset start, DateTimeOffset end, string? title = null) => new()
+    {
+        Id = Guid.CreateVersion7(),
+        DeviceId = _deviceId,
+        Source = ActivitySources.System,
+        IdentityKey = UsageMerger.SystemIdentityKey(appName, title),
+        AppId = appId,
+        Title = title,
+        StartTime = start,
+        EndTime = end,
+        DurationSeconds = (int)(end - start).TotalSeconds
+    };
+
     [Fact]
-    public async Task SaveUsage_ValidRecords_CreatesAppsAndUsages()
+    public async Task SaveUsage_ValidRecords_CreatesAppsAndSegments()
     {
         using var db = CreateDbContext();
         var svc = new UsageService(db);
@@ -50,7 +64,10 @@ public class UsageServiceTests(PostgresContainerFixture fixture) : PostgresTestB
 
         Assert.Single(db.Apps);
         Assert.Equal("VSCode", db.Apps.First().Name);
-        Assert.Single(db.AppUsages);
+        var segment = db.ActivitySegments.Single();
+        Assert.Equal(ActivitySources.System, segment.Source);
+        Assert.Equal(UsageMerger.SystemIdentityKey("VSCode", null), segment.IdentityKey);
+        Assert.NotEqual(Guid.Empty, segment.Id);
     }
 
     [Fact]
@@ -74,7 +91,7 @@ public class UsageServiceTests(PostgresContainerFixture fixture) : PostgresTestB
 
         await svc.SaveUsageAsync(_deviceId, request);
 
-        Assert.Empty(db.AppUsages);
+        Assert.Empty(db.ActivitySegments);
     }
 
     [Fact]
@@ -89,14 +106,7 @@ public class UsageServiceTests(PostgresContainerFixture fixture) : PostgresTestB
 
         var existingStart = Now.AddMinutes(-10);
         var existingEnd = Now.AddMinutes(-5);
-        db.AppUsages.Add(new AppUsage
-        {
-            DeviceId = _deviceId,
-            AppId = app.Id,
-            StartTime = existingStart,
-            EndTime = existingEnd,
-            DurationSeconds = (int)(existingEnd - existingStart).TotalSeconds
-        });
+        db.ActivitySegments.Add(SystemSegment(app.Id, "VSCode", existingStart, existingEnd));
         await db.SaveChangesAsync();
 
         // Upload overlapping record
@@ -109,10 +119,10 @@ public class UsageServiceTests(PostgresContainerFixture fixture) : PostgresTestB
 
         await svc.SaveUsageAsync(_deviceId, request);
 
-        var usages = db.AppUsages.ToList();
-        Assert.Single(usages);
-        Assert.Equal(existingStart, usages[0].StartTime);
-        Assert.Equal(newEnd, usages[0].EndTime);
+        var segments = db.ActivitySegments.ToList();
+        Assert.Single(segments);
+        Assert.Equal(existingStart, segments[0].StartTime);
+        Assert.Equal(newEnd, segments[0].EndTime);
     }
 
     [Fact]
@@ -125,15 +135,7 @@ public class UsageServiceTests(PostgresContainerFixture fixture) : PostgresTestB
         db.Apps.Add(app);
         await db.SaveChangesAsync();
 
-        var existingEnd = Now.AddMinutes(-10);
-        db.AppUsages.Add(new AppUsage
-        {
-            DeviceId = _deviceId,
-            AppId = app.Id,
-            StartTime = Now.AddMinutes(-15),
-            EndTime = existingEnd,
-            DurationSeconds = 300
-        });
+        db.ActivitySegments.Add(SystemSegment(app.Id, "VSCode", Now.AddMinutes(-15), Now.AddMinutes(-10)));
         await db.SaveChangesAsync();
 
         // New record starts 5 minutes after existing ends — no merge
@@ -144,7 +146,31 @@ public class UsageServiceTests(PostgresContainerFixture fixture) : PostgresTestB
 
         await svc.SaveUsageAsync(_deviceId, request);
 
-        Assert.Equal(2, db.AppUsages.Count());
+        Assert.Equal(2, db.ActivitySegments.Count());
+    }
+
+    [Fact]
+    public async Task SaveUsage_DoesNotMerge_AcrossDifferentTitles()
+    {
+        using var db = CreateDbContext();
+        var svc = new UsageService(db);
+
+        var app = new App { Name = "msedge" };
+        db.Apps.Add(app);
+        await db.SaveChangesAsync();
+
+        // 库内最新记录:同 App 但标题不同 → IdentityKey 不同,首尾相连也不续接(ADR-015/017)
+        var existingEnd = Now.AddMinutes(-5);
+        db.ActivitySegments.Add(SystemSegment(app.Id, "msedge", Now.AddMinutes(-10), existingEnd, "YouTube"));
+        await db.SaveChangesAsync();
+
+        var item = Item("msedge", existingEnd, Now.AddMinutes(-3));
+        item.Title = "GitHub";
+        var request = new UsageUploadRequest { Usages = [item] };
+
+        await svc.SaveUsageAsync(_deviceId, request);
+
+        Assert.Equal(2, db.ActivitySegments.Count());
     }
 
     [Fact]
@@ -165,7 +191,7 @@ public class UsageServiceTests(PostgresContainerFixture fixture) : PostgresTestB
         await svc.SaveUsageAsync(_deviceId, request);
 
         Assert.Equal(2, db.Apps.Count());
-        Assert.Equal(2, db.AppUsages.Count());
+        Assert.Equal(2, db.ActivitySegments.Count());
     }
 
     [Fact]
@@ -185,7 +211,7 @@ public class UsageServiceTests(PostgresContainerFixture fixture) : PostgresTestB
         await svc.SaveUsageAsync(_deviceId, request);
 
         Assert.Single(db.Apps);
-        Assert.Single(db.AppUsages);
+        Assert.Single(db.ActivitySegments);
     }
 
     [Fact]
@@ -203,7 +229,7 @@ public class UsageServiceTests(PostgresContainerFixture fixture) : PostgresTestB
 
         await svc.SaveUsageAsync(_deviceId, request);
 
-        var usage = db.AppUsages.Single();
-        Assert.Equal((int)(end - start).TotalSeconds, usage.DurationSeconds);
+        var segment = db.ActivitySegments.Single();
+        Assert.Equal((int)(end - start).TotalSeconds, segment.DurationSeconds);
     }
 }

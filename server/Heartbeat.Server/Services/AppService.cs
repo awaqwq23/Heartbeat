@@ -1,3 +1,4 @@
+using Heartbeat.Core;
 using Heartbeat.Core.DTOs.Apps;
 using Heartbeat.Server.Data;
 using Heartbeat.Server.Entities;
@@ -23,9 +24,11 @@ namespace Heartbeat.Server.Services
 
         public async Task<List<AppInfoResponse>> GetAppsForUserAsync(string ownerId)
         {
-            return await _db.AppUsages
+            // 只看 system 段：App 列表 = 该用户前台用过的应用。插件段的 AppId 是关联提示，不定义"用过"。
+            return await _db.ActivitySegments
                 .Where(u => u.Device.OwnerId == ownerId)
-                .Select(u => u.App)
+                .Where(u => u.Source == ActivitySources.System)
+                .Select(u => u.App!)
                 .Distinct()
                 .Select(a => new AppInfoResponse
                 {

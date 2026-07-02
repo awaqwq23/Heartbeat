@@ -1,4 +1,4 @@
-﻿using Heartbeat.Core;
+using Heartbeat.Core;
 using Heartbeat.Core.DTOs.Apps;
 using Heartbeat.Core.DTOs.Usage;
 using Heartbeat.Server.Data;
@@ -35,25 +35,25 @@ namespace Heartbeat.Server.Services
             await _db.SaveChangesAsync(); // 保存以获取新 App 的 Id
 
             var first = validUsages[0];
-            var firstAppId = existingApps[first.AppName].Id;
+            var firstKey = UsageMerger.SystemIdentityKey(first.AppName, first.Title);
             var firstMerged = false;
 
-            // 查该设备+同应用的最新记录，利用 (DeviceId, AppId, EndTime) 索引
-            var lastRecord = await _db.AppUsages
-                .Where(x => x.DeviceId == deviceId && x.AppId == firstAppId)
+            // 查该设备+同活动的最新记录，利用 (DeviceId, Source, IdentityKey, EndTime) 索引
+            var lastRecord = await _db.ActivitySegments
+                .Where(x => x.DeviceId == deviceId
+                    && x.Source == ActivitySources.System
+                    && x.IdentityKey == firstKey)
                 .OrderByDescending(x => x.EndTime)
                 .FirstOrDefaultAsync();
 
-            // 合并判据与客户端共用同一真源（同 App + 同 Title + 时间相连）。详见 ADR-015。
-            // lastRecord 已按 AppId == firstAppId 过滤，故其 App 名必等于 first.AppName，
-            // 直接复用 first.AppName 避免额外加载 App 导航属性。
+            // 续接判据与客户端共用同一真源（同 Source + 同 IdentityKey + 时间相连）。详见 ADR-017。
             if (lastRecord != null
                 && UsageMerger.CanMerge(
-                    first.AppName, lastRecord.Title, lastRecord.EndTime,
-                    first.AppName, first.Title, first.StartTime)
+                    lastRecord.Source, lastRecord.IdentityKey, lastRecord.EndTime,
+                    ActivitySources.System, firstKey, first.StartTime)
                 && first.EndTime >= lastRecord.StartTime)
             {
-                // 批次首条与数据库最新记录同应用+同标题且重叠或首尾相连 → 合并
+                // 批次首条与数据库最新记录同活动且重叠或首尾相连 → 合并
                 if (first.StartTime < lastRecord.StartTime)
                     lastRecord.StartTime = first.StartTime;
                 if (first.EndTime > lastRecord.EndTime)
@@ -66,9 +66,14 @@ namespace Heartbeat.Server.Services
             foreach (var u in validUsages.Skip(firstMerged ? 1 : 0))
             {
                 var appId = existingApps[u.AppName].Id;
-                _db.AppUsages.Add(new AppUsage
+                _db.ActivitySegments.Add(new ActivitySegment
                 {
+                    // TODO(ADR-017): Agent 改走新上传形状后由采集端生成 UUIDv7 兼作幂等键；
+                    // 过渡期由服务端生成，幂等性暂仍依赖 CanMerge 续接。
+                    Id = Guid.CreateVersion7(),
                     DeviceId = deviceId,
+                    Source = ActivitySources.System,
+                    IdentityKey = UsageMerger.SystemIdentityKey(u.AppName, u.Title),
                     AppId = appId,
                     Title = u.Title,
                     StartTime = u.StartTime,
@@ -82,9 +87,10 @@ namespace Heartbeat.Server.Services
 
         public async Task<List<AppUsageResponse>> GetUsageAsync(string ownerId, long? deviceId, DateTimeOffset? start, DateTimeOffset? end)
         {
-            var query = _db.AppUsages
+            var query = _db.ActivitySegments
                 .Include(x => x.App)
                 .Where(x => x.Device.OwnerId == ownerId)
+                .Where(x => x.Source == ActivitySources.System)
                 .AsQueryable();
 
             if (deviceId.HasValue)
@@ -102,8 +108,8 @@ namespace Heartbeat.Server.Services
                 .Select(x => new AppUsageResponse
                 {
                     Id = x.Id,
-                    AppId = x.AppId,
-                    AppName = x.App.Name,
+                    AppId = x.AppId!.Value,
+                    AppName = x.App!.Name,
                     Title = x.Title,
                     StartTime = x.StartTime,
                     EndTime = x.EndTime,

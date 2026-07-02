@@ -41,18 +41,20 @@ namespace Heartbeat.Server.Services
 
         private async Task<List<AppDurationItem>> AggregateAsync(string ownerId, long? deviceId, DateRange range)
         {
-            var query = _db.AppUsages
+            // 统计只消费 system source（互斥轨，时长可求和）。插件段只进回放。详见 ADR-017 §4。
+            var query = _db.ActivitySegments
                 .Where(x => x.Device.OwnerId == ownerId)
+                .Where(x => x.Source == ActivitySources.System)
                 .Where(x => x.StartTime >= range.UtcStart && x.StartTime < range.UtcEnd);
 
             if (deviceId.HasValue)
                 query = query.Where(x => x.DeviceId == deviceId.Value);
 
             return await query
-                .GroupBy(x => new { x.AppId, AppName = x.App.Name })
+                .GroupBy(x => new { x.AppId, AppName = x.App!.Name })
                 .Select(g => new AppDurationItem
                 {
-                    AppId = g.Key.AppId,
+                    AppId = g.Key.AppId!.Value,
                     AppName = g.Key.AppName,
                     DurationSeconds = g.Sum(x => x.DurationSeconds)
                 })

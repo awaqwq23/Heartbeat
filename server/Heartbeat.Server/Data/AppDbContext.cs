@@ -8,7 +8,7 @@ namespace Heartbeat.Server.Data
         public DbSet<User> Users => Set<User>();
         public DbSet<Device> Devices => Set<Device>();
         public DbSet<App> Apps => Set<App>();
-        public DbSet<AppUsage> AppUsages => Set<AppUsage>();
+        public DbSet<ActivitySegment> ActivitySegments => Set<ActivitySegment>();
         public DbSet<AppIcon> AppIcons => Set<AppIcon>();
         public DbSet<InputEvent> InputEvents => Set<InputEvent>();
 
@@ -42,9 +42,15 @@ namespace Heartbeat.Server.Data
                     .IsUnique();
             });
 
-            modelBuilder.Entity<AppUsage>(entity =>
+            modelBuilder.Entity<ActivitySegment>(entity =>
             {
+                // Id 为采集端生成的 UUIDv7，兼作去重键（幂等重传，ADR-017）。
                 entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedNever();
+
+                entity.Property(e => e.Source).HasMaxLength(64);
+
+                entity.Property(e => e.Attributes).HasColumnType("jsonb");
 
                 entity.HasOne(e => e.Device)
                     .WithMany()
@@ -57,8 +63,8 @@ namespace Heartbeat.Server.Data
                 entity.HasIndex(e => e.DeviceId);
                 entity.HasIndex(e => e.StartTime);
 
-                // 复合索引：用于合并查询时快速查找同设备+同应用的最新记录
-                entity.HasIndex(e => new { e.DeviceId, e.AppId, e.EndTime });
+                // 复合索引：续接查询按同设备+同 Source+同 IdentityKey 找最新记录（ADR-017）
+                entity.HasIndex(e => new { e.DeviceId, e.Source, e.IdentityKey, e.EndTime });
             });
 
             modelBuilder.Entity<AppIcon>(entity =>
