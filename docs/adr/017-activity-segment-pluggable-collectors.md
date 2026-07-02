@@ -48,7 +48,7 @@ ActivitySegment {
   Source      text      // 'system' | 'browser' | 'vscode' | 'minecraft' | ...
   IdentityKey text      // continuation predicate, computed by the collector
   AppId       FK?       // nullable; required for source='system'
-  Title       text?     // system source only (kept as a column; existing data, existing queries)
+  Title       text?     // display label; system = window title, plugins may fill (e.g. page title)
   StartTime   timestamptz
   EndTime     timestamptz
   Attributes  jsonb?    // free-form per source: {url, domain} / {file, project} / {boss, dimension}
@@ -105,8 +105,18 @@ There is exactly one mutually-exclusive track — foreground-ness is unique — 
 
 ## References
 
-<!-- Filled in as implementation lands -->
-
+- `shared/Heartbeat.Core/ActivitySources.cs` — Source 常量（'system' 保留字）
+- `shared/Heartbeat.Core/UsageMerger.cs` — `CanMerge(Source, IdentityKey, adjacency)` + `SystemIdentityKey`
+- `shared/Heartbeat.Core/SegmentValidationPolicy.cs` — 插件段完整性校验（允许零长度段）
+- `shared/Heartbeat.Core/DTOs/Segments/SegmentUploadRequest.cs` — 插件段上传形状
+- `server/Heartbeat.Server/Entities/ActivitySegment.cs` — 泛化实体
+- `server/Heartbeat.Server/Migrations/20260702110038_GeneralizeUsageToActivitySegment.cs` — 保数据迁移（backfill source='system'）
+- `server/Heartbeat.Server/Services/UsageService.cs` — `SaveSegmentsAsync` 统一摄入例程（幂等 + 续接）
+- `server/Heartbeat.Server/Controllers/SegmentController.cs` — `/api/v1/segments`（拒收 source='system'）
+- `desktop/Heartbeat.Agent/Workers/SegmentIngestWorker.cs` — loopback ingest 枢纽（`POST /v1/segments`）
+- `desktop/Heartbeat.Agent/Services/SegmentIngestService.cs` — 接收缓冲 + 校验
+- `desktop/Heartbeat.Agent/Services/SegmentUploadService.cs` — 插件段上传 + 离线缓存
+- frontend 回放多轨（pending）
 - [ADR-001](./001-server-side-usage-merging.md) — cross-batch continuation this generalizes
 - [ADR-008](./008-local-cache-offline-retry.md) — offline cache the hub reuses for all sources
 - [ADR-012](./012-input-event-tracking.md) — lossless/raw principle; UUIDv7 idempotency precedent; privacy posture

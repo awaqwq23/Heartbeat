@@ -26,5 +26,11 @@ namespace Heartbeat.Agent.Models
         /// 默认包含锁屏宿主 LockApp。详见 ADR-014。
         /// </summary>
         public List<string> AwayProcessNames { get; set; } = ["LockApp"];
+
+        /// <summary>
+        /// 本地 ingest 枢纽监听端口（loopback），插件采集器往此推段（ADR-017）。
+        /// ≤0 表示禁用。
+        /// </summary>
+        public int IngestPort { get; set; } = 48200;
     }
 }

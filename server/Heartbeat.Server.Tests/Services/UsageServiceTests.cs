@@ -1,9 +1,11 @@
 using Heartbeat.Core;
+using Heartbeat.Core.DTOs.Segments;
 using Heartbeat.Core.DTOs.Usage;
 using Heartbeat.Server.Data;
 using Heartbeat.Server.Entities;
 using Heartbeat.Server.Services;
 using Heartbeat.Server.Tests.Fixtures;
+using System.Text.Json;
 
 namespace Heartbeat.Server.Tests.Services;
 
@@ -29,6 +31,7 @@ public class UsageServiceTests(PostgresContainerFixture fixture) : PostgresTestB
 
     private static AppUsageItem Item(string app, DateTimeOffset start, DateTimeOffset end) => new()
     {
+        Id = Guid.CreateVersion7(),
         AppName = app,
         StartTime = start,
         EndTime = end
@@ -168,6 +171,87 @@ public class UsageServiceTests(PostgresContainerFixture fixture) : PostgresTestB
         item.Title = "GitHub";
         var request = new UsageUploadRequest { Usages = [item] };
 
+        await svc.SaveUsageAsync(_deviceId, request);
+
+        Assert.Equal(2, db.ActivitySegments.Count());
+    }
+
+    [Fact]
+    public async Task SaveSegments_PluginSource_PersistsWithAttributes_AndContinues()
+    {
+        using var db = CreateDbContext();
+        var svc = new UsageService(db);
+
+        ActivitySegmentItem BrowserSegment(DateTimeOffset start, DateTimeOffset end, string attrsJson) => new()
+        {
+            Id = Guid.CreateVersion7(),
+            Source = "browser",
+            IdentityKey = "https://example.com/page",
+            AppName = "msedge",
+            StartTime = start,
+            EndTime = end,
+            Attributes = JsonSerializer.Deserialize<JsonElement>(attrsJson)
+        };
+
+        // 第一批:落库 + 建 App 关联
+        var t0 = Now.AddMinutes(-10);
+        await svc.SaveSegmentsAsync(_deviceId, [BrowserSegment(t0, t0.AddMinutes(3), """{"url":"https://example.com/page"}""")]);
+
+        var seg = db.ActivitySegments.Single();
+        Assert.Equal("browser", seg.Source);
+        Assert.NotNull(seg.AppId);
+        Assert.Contains("example.com", seg.Attributes);
+
+        // 第二批:首尾相连(flush 封口重开场景) → 续接为一条,attributes 取最新
+        var t1 = t0.AddMinutes(3);
+        await svc.SaveSegmentsAsync(_deviceId, [BrowserSegment(t1, t1.AddMinutes(2), """{"url":"https://example.com/page","scroll":42}""")]);
+
+        var merged = db.ActivitySegments.Single();
+        Assert.Equal(t0, merged.StartTime);
+        Assert.Equal(t1.AddMinutes(2), merged.EndTime);
+        Assert.Contains("scroll", merged.Attributes);
+    }
+
+    [Fact]
+    public async Task SaveSegments_DifferentSource_DoesNotContinue()
+    {
+        using var db = CreateDbContext();
+        var svc = new UsageService(db);
+
+        // 同 IdentityKey、时间相连,但 Source 不同 → 不续接(续接隔离,ADR-017 §3a)
+        var t0 = Now.AddMinutes(-10);
+        ActivitySegmentItem Seg(string source, DateTimeOffset start, DateTimeOffset end) => new()
+        {
+            Id = Guid.CreateVersion7(),
+            Source = source,
+            IdentityKey = "same-key",
+            StartTime = start,
+            EndTime = end
+        };
+
+        await svc.SaveSegmentsAsync(_deviceId, [Seg("browser", t0, t0.AddMinutes(2))]);
+        await svc.SaveSegmentsAsync(_deviceId, [Seg("vscode", t0.AddMinutes(2), t0.AddMinutes(4))]);
+
+        Assert.Equal(2, db.ActivitySegments.Count());
+    }
+
+    [Fact]
+    public async Task SaveUsage_ReuploadSameBatch_IsIdempotent()
+    {
+        using var db = CreateDbContext();
+        var svc = new UsageService(db);
+
+        // 两条不可合并的段(不同 App),整批重传(离线缓存重试场景)
+        var request = new UsageUploadRequest
+        {
+            Usages =
+            [
+                Item("VSCode", Now.AddMinutes(-10), Now.AddMinutes(-8)),
+                Item("msedge", Now.AddMinutes(-7), Now.AddMinutes(-5))
+            ]
+        };
+
+        await svc.SaveUsageAsync(_deviceId, request);
         await svc.SaveUsageAsync(_deviceId, request);
 
         Assert.Equal(2, db.ActivitySegments.Count());

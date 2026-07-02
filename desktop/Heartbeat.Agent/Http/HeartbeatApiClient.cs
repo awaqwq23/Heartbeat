@@ -2,6 +2,7 @@ using Heartbeat.Agent.Configuration;
 using Heartbeat.Core.DTOs.Apps;
 using Heartbeat.Core.DTOs.Devices;
 using Heartbeat.Core.DTOs.Input;
+using Heartbeat.Core.DTOs.Segments;
 using Heartbeat.Core.DTOs.Usage;
 using System.Net.Http.Json;
 
@@ -14,6 +15,9 @@ namespace Heartbeat.Agent.Http
 
         public async Task<ApiResult> UploadUsageAsync(UsageUploadRequest dto, CancellationToken ct = default)
             => await PostAsync(Url("usage"), dto, "使用记录上传", ct);
+
+        public async Task<ApiResult> UploadSegmentsAsync(SegmentUploadRequest dto, CancellationToken ct = default)
+            => await PostAsync(Url("segments"), dto, "插件段上传", ct);
 
         public async Task<ApiResult> UploadInputEventsAsync(InputEventUploadRequest dto, CancellationToken ct = default)
             => await PostAsync(Url("input-events"), dto, "输入事件上传", ct);

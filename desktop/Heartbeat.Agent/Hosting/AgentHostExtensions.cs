@@ -61,6 +61,13 @@ namespace Heartbeat.Agent.Hosting
                 return new InputEventLocalCache(cachePath);
             });
 
+            services.AddSingleton<ISegmentCache>(sp =>
+            {
+                var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                var cachePath = Path.Combine(localAppData, "Heartbeat", "segments-cache.json");
+                return new SegmentLocalCache(cachePath);
+            });
+
             // 基础设施
             services.AddSingleton<IClock, SystemClock>();
             services.AddSingleton<IWindowEventMonitor, WindowsWindowEventMonitor>();
@@ -75,6 +82,8 @@ namespace Heartbeat.Agent.Hosting
             services.AddSingleton<StatusUploadService>();
             services.AddSingleton<InputEventCollector>();
             services.AddSingleton<InputEventUploadService>();
+            services.AddSingleton<SegmentIngestService>();
+            services.AddSingleton<SegmentUploadService>();
 
             // 自启动服务
             services.AddSingleton<IAutoStartService, RegistryAutoStartService>();
@@ -84,6 +93,7 @@ namespace Heartbeat.Agent.Hosting
             services.AddHostedService(sp => sp.GetRequiredService<InputEventCollector>());
             services.AddHostedService<UsageUploadWorker>();
             services.AddHostedService<StatusUploadWorker>();
+            services.AddHostedService<SegmentIngestWorker>();
 
             return services;
         }

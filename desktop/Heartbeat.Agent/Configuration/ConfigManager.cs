@@ -185,6 +185,7 @@ namespace Heartbeat.Agent.Configuration
                 UploadIntervalMinutes = source.UploadIntervalMinutes,
                 StatusUploadIntervalSeconds = source.StatusUploadIntervalSeconds,
                 AwayProcessNames = [.. source.AwayProcessNames ?? []],
+                IngestPort = source.IngestPort,
             };
         }
 

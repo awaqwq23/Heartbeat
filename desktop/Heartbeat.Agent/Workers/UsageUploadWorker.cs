@@ -11,6 +11,8 @@ namespace Heartbeat.Agent.Workers
         IconUploadService iconService,
         InputEventCollector inputCollector,
         InputEventUploadService inputUploadService,
+        SegmentIngestService segmentIngest,
+        SegmentUploadService segmentUploadService,
         ConfigManager configManager) : BackgroundService
     {
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -30,9 +32,11 @@ namespace Heartbeat.Agent.Workers
                     // 先尝试上传缓存的离线记录
                     await usageService.UploadCachedAsync();
                     await inputUploadService.UploadCachedAsync();
+                    await segmentUploadService.UploadCachedAsync();
 
                     await UploadUsagesAsync();
                     await UploadInputEventsAsync();
+                    await UploadSegmentsAsync();
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -53,6 +57,7 @@ namespace Heartbeat.Agent.Workers
             {
                 await UploadUsagesAsync();
                 await UploadInputEventsAsync();
+                await UploadSegmentsAsync();
             }
             catch (Exception ex)
             {
@@ -89,6 +94,14 @@ namespace Heartbeat.Agent.Workers
             if (events.Count == 0) return;
 
             await inputUploadService.UploadAsync(events);
+        }
+
+        private async Task UploadSegmentsAsync()
+        {
+            var segments = segmentIngest.GetAndClearSegments();
+            if (segments.Count == 0) return;
+
+            await segmentUploadService.UploadAsync(segments);
         }
     }
 }
