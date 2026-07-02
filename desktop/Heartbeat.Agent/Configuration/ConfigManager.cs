@@ -34,16 +34,29 @@ namespace Heartbeat.Agent.Configuration
         }
 
         /// <summary>
+        /// 环境变量：若设置，覆盖 ApiBaseUrl（仅本地端到端验证用，不落盘）。
+        /// 只覆盖上传目标；AuthServiceBaseUrl 不动，鉴权仍走真实 Auth 平台。详见 README「本地端到端验证」。
+        /// </summary>
+        public const string ApiBaseUrlOverrideEnv = "HEARTBEAT_API_BASE_URL";
+
+        /// <summary>
         /// 获取当前配置快照（返回副本，防止外部修改）
         /// </summary>
         public AgentConfig Current
         {
             get
             {
+                AgentConfig snapshot;
                 lock (_lock)
                 {
-                    return Clone(_current);
+                    snapshot = Clone(_current);
                 }
+
+                var overrideUrl = Environment.GetEnvironmentVariable(ApiBaseUrlOverrideEnv);
+                if (!string.IsNullOrWhiteSpace(overrideUrl))
+                    snapshot.ApiBaseUrl = overrideUrl.TrimEnd('/');
+
+                return snapshot;
             }
         }
 

@@ -118,13 +118,19 @@ docker compose -f compose.local.yml --env-file .env.local up --build
 
 ### 3. Point the desktop Agent at the local stack
 
-Edit `%LOCALAPPDATA%\Heartbeat\config.json`:
+Set the `HEARTBEAT_API_BASE_URL` environment variable before launching the Agent — it
+overrides the upload target **for that process only, without touching config.json**
+(auth still goes to the real platform via the unchanged `AuthServiceBaseUrl`):
 
-- Set `ApiBaseUrl` to `http://localhost:8080` (was the production URL).
-- Leave `AuthServiceBaseUrl` and `ApiKey` unchanged (auth still goes to the real platform).
+```powershell
+$env:HEARTBEAT_API_BASE_URL = "http://localhost:8080"
+# then launch the Agent from the same shell:
+dotnet run --project desktop/Heartbeat.Agent.Runner
+# or run Heartbeat.WPF from this shell
+```
 
-Then run the Agent (`Heartbeat.WPF` or `Heartbeat.Agent.Runner`). Use the keyboard, switch
-windows, then open <http://localhost:8080> — data should appear within an upload interval.
+Closing the shell reverts everything — no config to restore. Use the keyboard, switch
+windows, then open <http://localhost:8080>; data should appear within an upload interval.
 
 ### 4. Regenerate the API client (when server DTOs/endpoints changed)
 
@@ -140,8 +146,7 @@ nswag openapi2tsclient /input:http://localhost:8080/openapi/v1.json /output:fron
 docker compose -f compose.local.yml down
 ```
 
-The database is not persisted (no volume), so every run starts clean. **Remember to restore
-`ApiBaseUrl` in the Agent's config.json** to the production URL when done.
+The database is not persisted (no volume), so every run starts clean.
 
 ## Architecture Decision Records (ADR)
 
