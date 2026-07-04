@@ -1,6 +1,6 @@
 # ADR-001: Server-Side Usage Record Merging
 
-## Status: Accepted
+## Status: Superseded by [ADR-018](./018-stable-segment-identity-snapshot-upload.md)
 
 ## Date: 2026-02-26
 
