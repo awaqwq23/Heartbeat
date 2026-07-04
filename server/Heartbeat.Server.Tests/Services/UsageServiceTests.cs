@@ -98,53 +98,66 @@ public class UsageServiceTests(PostgresContainerFixture fixture) : PostgresTestB
     }
 
     [Fact]
-    public async Task SaveUsage_MergesWithExistingRecord_WhenOverlapping()
+    public async Task SaveUsage_SnapshotReupload_ExtendsExistingRow()
     {
         using var db = CreateDbContext();
         var svc = new UsageService(db);
 
-        var app = new App { Name = "VSCode" };
-        db.Apps.Add(app);
-        await db.SaveChangesAsync();
+        // 同 Id 快照重传（ADR-018）：flush 周期性上报进行中段，EndTime 单调生长
+        var id = Guid.CreateVersion7();
+        var t0 = Now.AddMinutes(-10);
 
-        var existingStart = Now.AddMinutes(-10);
-        var existingEnd = Now.AddMinutes(-5);
-        db.ActivitySegments.Add(SystemSegment(app.Id, "VSCode", existingStart, existingEnd));
-        await db.SaveChangesAsync();
+        var snapshot1 = Item("VSCode", t0, t0.AddMinutes(1));
+        snapshot1.Id = id;
+        await svc.SaveUsageAsync(_deviceId, new UsageUploadRequest { Usages = [snapshot1] });
 
-        // Upload overlapping record
-        var newStart = Now.AddMinutes(-6);
-        var newEnd = Now.AddMinutes(-3);
-        var request = new UsageUploadRequest
-        {
-            Usages = [Item("VSCode", newStart, newEnd)]
-        };
+        var snapshot2 = Item("VSCode", t0, t0.AddMinutes(5));
+        snapshot2.Id = id;
+        await svc.SaveUsageAsync(_deviceId, new UsageUploadRequest { Usages = [snapshot2] });
 
-        await svc.SaveUsageAsync(_deviceId, request);
-
-        var segments = db.ActivitySegments.ToList();
-        Assert.Single(segments);
-        Assert.Equal(existingStart, segments[0].StartTime);
-        Assert.Equal(newEnd, segments[0].EndTime);
+        var row = db.ActivitySegments.Single();
+        Assert.Equal(t0, row.StartTime);
+        Assert.Equal(t0.AddMinutes(5), row.EndTime);
+        Assert.Equal(300, row.DurationSeconds);
     }
 
     [Fact]
-    public async Task SaveUsage_DoesNotMerge_WhenGapExceedsTolerance()
+    public async Task SaveUsage_OutOfOrderOldSnapshot_DoesNotShrinkRow()
     {
         using var db = CreateDbContext();
         var svc = new UsageService(db);
 
-        var app = new App { Name = "VSCode" };
-        db.Apps.Add(app);
-        await db.SaveChangesAsync();
+        // 离线缓存迟到重传：旧快照晚于新快照到达，行不得回退（摄入可交换，ADR-018）
+        var id = Guid.CreateVersion7();
+        var t0 = Now.AddMinutes(-10);
 
-        db.ActivitySegments.Add(SystemSegment(app.Id, "VSCode", Now.AddMinutes(-15), Now.AddMinutes(-10)));
-        await db.SaveChangesAsync();
+        var newer = Item("VSCode", t0, t0.AddMinutes(5));
+        newer.Id = id;
+        await svc.SaveUsageAsync(_deviceId, new UsageUploadRequest { Usages = [newer] });
 
-        // New record starts 5 minutes after existing ends — no merge
+        var older = Item("VSCode", t0, t0.AddMinutes(1));
+        older.Id = id;
+        await svc.SaveUsageAsync(_deviceId, new UsageUploadRequest { Usages = [older] });
+
+        var row = db.ActivitySegments.Single();
+        Assert.Equal(t0.AddMinutes(5), row.EndTime);
+    }
+
+    [Fact]
+    public async Task SaveUsage_DistinctIds_AdjacentSameActivity_StayTwoRows()
+    {
+        using var db = CreateDbContext();
+        var svc = new UsageService(db);
+
+        // ADR-018 行为变化：不同 Id 即不同活动，同 App+Title 首尾相连也不再启发式粘合
+        var t0 = Now.AddMinutes(-10);
         var request = new UsageUploadRequest
         {
-            Usages = [Item("VSCode", Now.AddMinutes(-4), Now.AddMinutes(-2))]
+            Usages =
+            [
+                Item("VSCode", t0, t0.AddMinutes(3)),
+                Item("VSCode", t0.AddMinutes(3), t0.AddMinutes(5))
+            ]
         };
 
         await svc.SaveUsageAsync(_deviceId, request);
@@ -153,38 +166,15 @@ public class UsageServiceTests(PostgresContainerFixture fixture) : PostgresTestB
     }
 
     [Fact]
-    public async Task SaveUsage_DoesNotMerge_AcrossDifferentTitles()
+    public async Task SaveSegments_PluginSnapshots_GrowOneRow_AttributesLastWriteWins()
     {
         using var db = CreateDbContext();
         var svc = new UsageService(db);
 
-        var app = new App { Name = "msedge" };
-        db.Apps.Add(app);
-        await db.SaveChangesAsync();
-
-        // 库内最新记录:同 App 但标题不同 → IdentityKey 不同,首尾相连也不续接(ADR-015/017)
-        var existingEnd = Now.AddMinutes(-5);
-        db.ActivitySegments.Add(SystemSegment(app.Id, "msedge", Now.AddMinutes(-10), existingEnd, "YouTube"));
-        await db.SaveChangesAsync();
-
-        var item = Item("msedge", existingEnd, Now.AddMinutes(-3));
-        item.Title = "GitHub";
-        var request = new UsageUploadRequest { Usages = [item] };
-
-        await svc.SaveUsageAsync(_deviceId, request);
-
-        Assert.Equal(2, db.ActivitySegments.Count());
-    }
-
-    [Fact]
-    public async Task SaveSegments_PluginSource_PersistsWithAttributes_AndContinues()
-    {
-        using var db = CreateDbContext();
-        var svc = new UsageService(db);
-
-        ActivitySegmentItem BrowserSegment(DateTimeOffset start, DateTimeOffset end, string attrsJson) => new()
+        var id = Guid.CreateVersion7();
+        ActivitySegmentItem Snapshot(DateTimeOffset start, DateTimeOffset end, string attrsJson) => new()
         {
-            Id = Guid.CreateVersion7(),
+            Id = id,
             Source = "browser",
             IdentityKey = "https://example.com/page",
             AppName = "msedge",
@@ -193,46 +183,72 @@ public class UsageServiceTests(PostgresContainerFixture fixture) : PostgresTestB
             Attributes = JsonSerializer.Deserialize<JsonElement>(attrsJson)
         };
 
-        // 第一批:落库 + 建 App 关联
+        // 第一批：落库 + 建 App 关联
         var t0 = Now.AddMinutes(-10);
-        await svc.SaveSegmentsAsync(_deviceId, [BrowserSegment(t0, t0.AddMinutes(3), """{"url":"https://example.com/page"}""")]);
+        await svc.SaveSegmentsAsync(_deviceId, [Snapshot(t0, t0.AddMinutes(3), """{"url":"https://example.com/page"}""")]);
 
         var seg = db.ActivitySegments.Single();
         Assert.Equal("browser", seg.Source);
         Assert.NotNull(seg.AppId);
         Assert.Contains("example.com", seg.Attributes);
 
-        // 第二批:首尾相连(flush 封口重开场景) → 续接为一条,attributes 取最新
-        var t1 = t0.AddMinutes(3);
-        await svc.SaveSegmentsAsync(_deviceId, [BrowserSegment(t1, t1.AddMinutes(2), """{"url":"https://example.com/page","scroll":42}""")]);
+        // 第二批：同 Id 快照 → 同一行生长，attributes 后写胜（ADR-018）
+        await svc.SaveSegmentsAsync(_deviceId, [Snapshot(t0, t0.AddMinutes(5), """{"url":"https://example.com/page","scroll":42}""")]);
 
-        var merged = db.ActivitySegments.Single();
-        Assert.Equal(t0, merged.StartTime);
-        Assert.Equal(t1.AddMinutes(2), merged.EndTime);
-        Assert.Contains("scroll", merged.Attributes);
+        var grown = db.ActivitySegments.Single();
+        Assert.Equal(t0, grown.StartTime);
+        Assert.Equal(t0.AddMinutes(5), grown.EndTime);
+        Assert.Contains("scroll", grown.Attributes);
     }
 
     [Fact]
-    public async Task SaveSegments_DifferentSource_DoesNotContinue()
+    public async Task SaveSegments_InBatchSnapshotsSameId_ConvergeToOneRow()
     {
         using var db = CreateDbContext();
         var svc = new UsageService(db);
 
-        // 同 IdentityKey、时间相连,但 Source 不同 → 不续接(续接隔离,ADR-017 §3a)
+        // 枢纽攒批场景：插件 30s 推一次、Agent 1min 传一次，一批里带同 Id 多个快照
+        var id = Guid.CreateVersion7();
         var t0 = Now.AddMinutes(-10);
-        ActivitySegmentItem Seg(string source, DateTimeOffset start, DateTimeOffset end) => new()
+        ActivitySegmentItem Snapshot(DateTimeOffset end) => new()
         {
-            Id = Guid.CreateVersion7(),
-            Source = source,
-            IdentityKey = "same-key",
-            StartTime = start,
+            Id = id,
+            Source = "vscode",
+            IdentityKey = "d:/repo/file.cs",
+            StartTime = t0,
             EndTime = end
         };
 
-        await svc.SaveSegmentsAsync(_deviceId, [Seg("browser", t0, t0.AddMinutes(2))]);
-        await svc.SaveSegmentsAsync(_deviceId, [Seg("vscode", t0.AddMinutes(2), t0.AddMinutes(4))]);
+        await svc.SaveSegmentsAsync(_deviceId, [Snapshot(t0.AddSeconds(30)), Snapshot(t0.AddSeconds(60)), Snapshot(t0.AddSeconds(90))]);
 
-        Assert.Equal(2, db.ActivitySegments.Count());
+        var row = db.ActivitySegments.Single();
+        Assert.Equal(t0.AddSeconds(90), row.EndTime);
+    }
+
+    [Fact]
+    public async Task SaveSegments_IdReuseWithDifferentIdentity_IsRejected()
+    {
+        using var db = CreateDbContext();
+        var svc = new UsageService(db);
+
+        // 身份守卫（ADR-018 §2）：同 Id 但 Source/IdentityKey 不符 → 拒收，既有行不动
+        var id = Guid.CreateVersion7();
+        var t0 = Now.AddMinutes(-10);
+        ActivitySegmentItem Seg(string source, string key, DateTimeOffset end) => new()
+        {
+            Id = id,
+            Source = source,
+            IdentityKey = key,
+            StartTime = t0,
+            EndTime = end
+        };
+
+        await svc.SaveSegmentsAsync(_deviceId, [Seg("browser", "https://example.com", t0.AddMinutes(2))]);
+        await svc.SaveSegmentsAsync(_deviceId, [Seg("vscode", "d:/repo/file.cs", t0.AddMinutes(9))]);
+
+        var row = db.ActivitySegments.Single();
+        Assert.Equal("browser", row.Source);
+        Assert.Equal(t0.AddMinutes(2), row.EndTime);
     }
 
     [Fact]

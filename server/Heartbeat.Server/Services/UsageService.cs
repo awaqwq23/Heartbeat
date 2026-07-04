@@ -5,10 +5,11 @@ using Heartbeat.Core.DTOs.Usage;
 using Heartbeat.Server.Data;
 using Heartbeat.Server.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Heartbeat.Server.Services
 {
-    public class UsageService(AppDbContext db)
+    public class UsageService(AppDbContext db, ILogger<UsageService>? logger = null)
     {
         private readonly AppDbContext _db = db;
 
@@ -23,7 +24,8 @@ namespace Heartbeat.Server.Services
 
             var items = validUsages.Select(u => new ActivitySegmentItem
             {
-                // 旧版 Agent 无 Id（Guid.Empty）→ 服务端代为生成，幂等性退化为 CanMerge 续接。
+                // 旧版 Agent 无 Id（Guid.Empty）→ 服务端代为生成。ADR-018 后不再续接，
+                // 旧版按 flush 周期成行（碎片），随 Agent 自动更新自然消失。
                 Id = u.Id != Guid.Empty ? u.Id : Guid.CreateVersion7(),
                 Source = ActivitySources.System,
                 IdentityKey = UsageMerger.SystemIdentityKey(u.AppName, u.Title),
@@ -37,26 +39,13 @@ namespace Heartbeat.Server.Services
         }
 
         /// <summary>
-        /// 统一摄入例程（ADR-017）：校验 → 幂等去重 → App 关联 → 跨批次续接 → 插入。
-        /// 所有 source 共用；'system' 的拒收由公开接缝（SegmentController）负责，此处 source 无关。
+        /// 统一摄入例程（ADR-018）：校验 → App 关联 → 按 Id 快照 upsert。
+        /// Id 即活动身份：已有行则扩展边界（EndTime 取 max、attributes 后写胜），新 Id 插入。
+        /// 快照单调生长，摄入可交换可重入——乱序重传、批内多快照同 Id 均收敛到同一行。
         /// </summary>
         public async Task SaveSegmentsAsync(long deviceId, List<ActivitySegmentItem> segments)
         {
             var valid = SegmentValidationPolicy.Filter(segments, DateTimeOffset.UtcNow);
-            if (valid.Count == 0) return;
-
-            // 批内重复 Id 只留首条（PK 冲突会让整批反复重试失败）。
-            var seenIds = new HashSet<Guid>();
-            valid = valid.Where(s => seenIds.Add(s.Id)).ToList();
-
-            // 幂等：过滤掉库中已存在的段 Id（离线重传整批不重复插入，InputEvent 先例）。
-            var ids = valid.Select(s => s.Id).ToList();
-            var existingIds = await _db.ActivitySegments
-                .Where(s => ids.Contains(s.Id))
-                .Select(s => s.Id)
-                .ToHashSetAsync();
-            if (existingIds.Count > 0)
-                valid = valid.Where(s => !existingIds.Contains(s.Id)).ToList();
             if (valid.Count == 0) return;
 
             // AppName 关联提示 → 获取或创建 App 记录
@@ -81,52 +70,58 @@ namespace Heartbeat.Server.Services
             if (existingApps.Count > 0)
                 await _db.SaveChangesAsync(); // 保存以获取新 App 的 Id
 
-            var first = valid[0];
-            var firstMerged = false;
+            // 快照 upsert：一次批量取回本批涉及的已有行，新插入的行也进字典，
+            // 让批内后续同 Id 快照走扩展路径（枢纽攒批场景）。
+            var ids = valid.Select(s => s.Id).Distinct().ToList();
+            var rows = await _db.ActivitySegments
+                .Where(x => ids.Contains(x.Id))
+                .ToDictionaryAsync(x => x.Id);
 
-            // 查该设备+同活动的最新记录，利用 (DeviceId, Source, IdentityKey, EndTime) 索引
-            var lastRecord = await _db.ActivitySegments
-                .Where(x => x.DeviceId == deviceId
-                    && x.Source == first.Source
-                    && x.IdentityKey == first.IdentityKey)
-                .OrderByDescending(x => x.EndTime)
-                .FirstOrDefaultAsync();
-
-            // 续接判据与客户端共用同一真源（同 Source + 同 IdentityKey + 时间相连）。详见 ADR-017。
-            if (lastRecord != null
-                && UsageMerger.CanMerge(
-                    lastRecord.Source, lastRecord.IdentityKey, lastRecord.EndTime,
-                    first.Source, first.IdentityKey, first.StartTime)
-                && first.EndTime >= lastRecord.StartTime)
+            foreach (var s in valid)
             {
-                // 批次首条与数据库最新记录同活动且重叠或首尾相连 → 合并
-                if (first.StartTime < lastRecord.StartTime)
-                    lastRecord.StartTime = first.StartTime;
-                if (first.EndTime > lastRecord.EndTime)
-                    lastRecord.EndTime = first.EndTime;
-                lastRecord.DurationSeconds = (int)(lastRecord.EndTime - lastRecord.StartTime).TotalSeconds;
-                // 续接时保留最新 attributes（易变字段不参与判据，ADR-017 §3a）
-                if (first.Attributes.HasValue)
-                    lastRecord.Attributes = first.Attributes.Value.GetRawText();
-                firstMerged = true;
-            }
-
-            // 其余记录直接插入
-            foreach (var s in valid.Skip(firstMerged ? 1 : 0))
-            {
-                _db.ActivitySegments.Add(new ActivitySegment
+                if (rows.TryGetValue(s.Id, out var row))
                 {
-                    Id = s.Id,
-                    DeviceId = deviceId,
-                    Source = s.Source,
-                    IdentityKey = s.IdentityKey,
-                    AppId = !string.IsNullOrWhiteSpace(s.AppName) ? existingApps[s.AppName!].Id : null,
-                    Title = s.Title,
-                    StartTime = s.StartTime,
-                    EndTime = s.EndTime,
-                    DurationSeconds = (int)(s.EndTime - s.StartTime).TotalSeconds,
-                    Attributes = s.Attributes?.GetRawText()
-                });
+                    // 身份守卫（ADR-018 §2）：同 Id 必须同设备、同 Source、同 IdentityKey，
+                    // 失控采集器复用 Id 只能命中自己的行，无法污染他行。
+                    if (row.DeviceId != deviceId
+                        || !string.Equals(row.Source, s.Source, StringComparison.Ordinal)
+                        || !string.Equals(row.IdentityKey, s.IdentityKey, StringComparison.Ordinal))
+                    {
+                        logger?.LogWarning(
+                            "段 {Id} 身份不匹配被拒收: 既有 ({Source}, {Key}) vs 传入 ({NewSource}, {NewKey})",
+                            s.Id, row.Source, row.IdentityKey, s.Source, s.IdentityKey);
+                        continue;
+                    }
+
+                    // 后写胜只对"最新快照"生效：乱序到达的旧快照不得回退 Title/Attributes。
+                    var isNewest = s.EndTime >= row.EndTime;
+                    if (s.StartTime < row.StartTime) row.StartTime = s.StartTime;
+                    if (s.EndTime > row.EndTime) row.EndTime = s.EndTime;
+                    row.DurationSeconds = (int)(row.EndTime - row.StartTime).TotalSeconds;
+                    if (isNewest)
+                    {
+                        if (s.Title != null) row.Title = s.Title;
+                        if (s.Attributes.HasValue) row.Attributes = s.Attributes.Value.GetRawText();
+                    }
+                }
+                else
+                {
+                    var entity = new ActivitySegment
+                    {
+                        Id = s.Id,
+                        DeviceId = deviceId,
+                        Source = s.Source,
+                        IdentityKey = s.IdentityKey,
+                        AppId = !string.IsNullOrWhiteSpace(s.AppName) ? existingApps[s.AppName!].Id : null,
+                        Title = s.Title,
+                        StartTime = s.StartTime,
+                        EndTime = s.EndTime,
+                        DurationSeconds = (int)(s.EndTime - s.StartTime).TotalSeconds,
+                        Attributes = s.Attributes?.GetRawText()
+                    };
+                    _db.ActivitySegments.Add(entity);
+                    rows[s.Id] = entity;
+                }
             }
 
             await _db.SaveChangesAsync();
