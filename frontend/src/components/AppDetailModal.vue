@@ -3,6 +3,8 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { getIconUrl, fetchPublicSegments } from '../api/index'
 import type { AppUsageResponse, SegmentResponse } from '../api/index'
 import { formatDuration } from '../composables/useHeartbeat'
+import { formatTitle } from '../titleFormatters'
+import { upgradeBreakdown, type PluginSeg } from '../labelUpgrade'
 import { X } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -11,7 +13,6 @@ const props = defineProps<{
   selectedDate: string
   app: { appId: number; appName: string; totalSeconds: number }
   usageData: AppUsageResponse[]
-  titleBreakdown: (appId: number) => { title: string; secondary?: string; category?: string; totalSeconds: number; count: number }[]
 }>()
 
 const emit = defineEmits<{ close: [] }>()
@@ -105,8 +106,40 @@ const tracks = computed<Track[]>(() => {
   return result
 })
 
-const timeTicks = computed(() => {
-  const vb = viewBounds.value
+// ── 标题明细（ADR-019 标签升级）──
+// system 段有重叠插件段时标签升级为页面标题/URL，无覆盖的时间窗口 fallback 到窗口标题。
+
+/** attributes 是各 source 自由结构的 JSON 串，取 url 作副标签；解析失败忽略。 */
+function urlOf(s: SegmentResponse): string | undefined {
+  if (!s.attributes) return undefined
+  try {
+    const a = JSON.parse(s.attributes) as { url?: string }
+    return typeof a.url === 'string' ? a.url : undefined
+  } catch {
+    return undefined
+  }
+}
+
+const breakdown = computed(() => {
+  const plugins: PluginSeg[] = pluginSegments.value
+    .filter(s => s.startTime && s.endTime)
+    .map(s => ({
+      start: s.startTime!.getTime(),
+      end: s.endTime!.getTime(),
+      identityKey: s.identityKey,
+      title: s.title ?? undefined,
+      url: urlOf(s),
+    }))
+  const systems = systemSegments.value.map(u => ({
+    start: u.startTime!.getTime(),
+    end: u.endTime!.getTime(),
+    appName: u.appName,
+    title: u.title ?? undefined,
+  }))
+  return upgradeBreakdown(systems, plugins, formatTitle)
+})
+
+const timeTicks = computed(() => {  const vb = viewBounds.value
   if (!vb) return []
   const range = vb.end - vb.start
   const niceIntervals = [300_000, 900_000, 1_800_000, 3_600_000, 7_200_000, 10_800_000, 21_600_000]
@@ -211,16 +244,21 @@ onUnmounted(() => {
             </div>
           </section>
 
-          <!-- 标题明细 -->
+          <!-- 标题明细（插件覆盖时段升级为页面级，其余窗口标题 fallback） -->
           <section>
             <h3 class="mb-2 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">标题明细</h3>
             <div class="flex flex-col gap-2">
               <div
-                v-for="(t, ti) in titleBreakdown(app.appId)"
+                v-for="(t, ti) in breakdown"
                 :key="ti"
                 class="flex items-center gap-2 text-[0.8rem]"
                 :class="t.category === 'system' ? 'opacity-50' : ''"
               >
+                <span
+                  v-if="t.upgraded"
+                  class="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-3"
+                  title="页面级明细（浏览器插件）"
+                ></span>
                 <span class="flex min-w-0 flex-1 flex-col">
                   <span class="truncate" :class="t.title ? '' : 'text-muted-foreground italic'" :title="t.title">{{ t.title || '无标题窗口' }}</span>
                   <span v-if="t.secondary" class="truncate text-[0.65rem] text-muted-foreground" :title="t.secondary">{{ t.secondary }}</span>
@@ -229,7 +267,7 @@ onUnmounted(() => {
                 <span class="shrink-0 font-mono text-[0.75rem] text-muted-foreground">{{ formatDuration(t.totalSeconds) }}</span>
               </div>
               <div
-                v-if="titleBreakdown(app.appId).length === 0"
+                v-if="breakdown.length === 0"
                 class="py-2 text-center text-[0.8rem] text-muted-foreground"
               >
                 无标题明细

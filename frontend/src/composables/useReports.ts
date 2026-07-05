@@ -2,7 +2,6 @@ import { ref, computed, type Ref } from 'vue'
 import type { AppSummary, AppUsageResponse, DailyReportResponse, WeeklyReportResponse } from '../api/index'
 import { fetchPublicUsage, fetchPublicDailyReport, fetchPublicWeeklyReport } from '../api/index'
 import { AWAY_APP } from '../appLabels'
-import { formatTitle } from '../titleFormatters'
 
 interface AppDurationLike {
   appId?: number
@@ -30,6 +29,7 @@ function awayOf(apps: AppDurationLike[] | undefined): number {
 /**
  * 统计/回放域：日报、周报、原始用量段，以及由它们派生的排行、求和、活跃小时。
  * away 政策（includeAway 开关 + 过滤/求和）集中在此处，不散落到组件。
+ * 标题明细已移至 AppDetailModal（ADR-019 标签升级，见 labelUpgrade.ts）。
  */
 export function useReports(
   username: string,
@@ -94,28 +94,6 @@ export function useReports(
     weeklyReport.value = await fetchPublicWeeklyReport(username, { deviceId: selectedDevice.value, date: selectedDate.value })
   }
 
-  /**
-   * 某个 App 在当前 usageData 内、按格式化后标题聚合的时长明细（降序）。
-   * 标题先过 formatTitle 归一化（无损，仅展示），故 spinner 变体等会自动合并计数。
-   * 详见 ADR-015 / ADR-016。
-   */
-  function titleBreakdown(appId: number): { title: string; secondary?: string; category?: string; totalSeconds: number; count: number }[] {
-    const byTitle = new Map<string, { secondary?: string; category?: string; totalSeconds: number; count: number }>()
-    for (const u of usageData.value) {
-      if (u.appId !== appId || !u.startTime || !u.endTime) continue
-      const fmt = formatTitle(u.appName, u.title)
-      const key = fmt.primary
-      const secs = Math.round((u.endTime.getTime() - u.startTime.getTime()) / 1000)
-      const cur = byTitle.get(key) ?? { secondary: fmt.secondary, category: fmt.category, totalSeconds: 0, count: 0 }
-      cur.totalSeconds += secs
-      cur.count += 1
-      byTitle.set(key, cur)
-    }
-    return [...byTitle.entries()]
-      .map(([title, v]) => ({ title, secondary: v.secondary, category: v.category, totalSeconds: v.totalSeconds, count: v.count }))
-      .sort((a, b) => b.totalSeconds - a.totalSeconds)
-  }
-
   return {
     usageData,
     includeAway,
@@ -128,7 +106,6 @@ export function useReports(
     weeklyAwaySeconds,
     weeklyTotalSeconds,
     activeHours,
-    titleBreakdown,
     loadUsage,
     loadDaily,
     loadWeekly,

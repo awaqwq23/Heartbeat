@@ -46,7 +46,6 @@ const {
   includeAway,
   keyFrequency,
   timezoneLabel,
-  titleBreakdown,
 } = useHeartbeat(props.username)
 
 // Reka UI Select 用字符串值，selectedDevice 是 number —— 用 computed 双向桥接
@@ -165,7 +164,6 @@ const selectedApp = ref<{ appId: number; appName: string; totalSeconds: number }
       :selectedDate="selectedDate"
       :app="selectedApp"
       :usageData="usageData"
-      :titleBreakdown="titleBreakdown"
       @close="selectedApp = null"
     />
 

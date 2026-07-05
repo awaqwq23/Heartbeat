@@ -97,7 +97,6 @@ export function useHeartbeat(username: string) {
     awaySeconds: reports.awaySeconds,
     maxSeconds: reports.maxSeconds,
     activeHours: reports.activeHours,
-    titleBreakdown: reports.titleBreakdown,
     weeklyAppSummaries: reports.weeklyAppSummaries,
     weeklyTotalSeconds: reports.weeklyTotalSeconds,
     weeklyAwaySeconds: reports.weeklyAwaySeconds,
