@@ -15,7 +15,7 @@ Status: ready-for-agent
 - 监听 active tab 的身份变化（tab 切换、当前 tab 的 URL 变化），把连续的"同一活动"折叠成 `[StartTime, EndTime]` 段。折叠在扩展侧完成（ADR-017 §3：collectors fold）。
 - **忠实记录，不判前台**：浏览器窗口是否在操作系统前台与扩展无关（双时间线公理，ADR-017）。多窗口时每个窗口各记其 active tab，两段并存合法，`windowId` 进 Attributes。
 - 段形状：`source='browser'`；`IdentityKey` = origin + pathname（掐 query/fragment，本片不做覆写表——那是 issue 02）；`Title` = 页面标题；`AppName` = 浏览器进程名（如 `msedge.exe`，作关联提示）；`Attributes` = `{url(完整原始 URL), domain, windowId}`；`Id` = 扩展生成的 UUIDv7。
-- 进行中的段用 close-and-reopen 模式周期性上报（服务端按 (Source, IdentityKey, 相邻) 续接，已实现，勿改）。
+- 进行中的段用稳定 Id 快照上报（ADR-018）：同一活动持有同一 UUIDv7，每个上报周期推送 EndTime 单调生长的快照，服务端按 Id upsert 收敛（已实现，勿改）。单段生长超过服务端 MaxDuration（24h）前扩展侧应轮换新 Id，防快照被校验丢弃。
 - 上报 `POST http://127.0.0.1:{port}/v1/segments`，body 为 `SegmentUploadRequest` 形状。hub 不可达或非 2xx 时指数退避，段在扩展本地缓冲不丢（浏览器重启后仍在）。
 - 端口可在扩展选项页配置，默认与 Agent 的 `IngestPort` 默认值一致。
 
