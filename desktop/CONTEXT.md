@@ -1,12 +1,21 @@
 # Collection
 
-采集 Windows 前台窗口使用时长，上传至服务端。作为常驻托盘应用运行。
+采集 Windows 前台窗口使用时长与各应用内活动，上传至服务端。作为常驻托盘应用运行。
 
 ## Language
 
 **Agent**:
-后台采集引擎，负责监听窗口切换、生成使用记录、缓存与上传。
+后台采集引擎，兼任本机 ingest hub（ADR-017）：监听窗口切换生成 system 段，接收各 Collector 经 loopback 推送的插件段，统一缓存与上传。
 _Avoid_: Service, Worker（这些是 Agent 内部的实现层）
+
+**Collector（采集器）**:
+一个观测特定应用内活动并向 hub 推送 ActivitySegment 的组件（browser 扩展、vscode 插件等）。system 采集器是特例，内置于 Agent。代码位于顶层 `collectors/`。
+
+**Active（采集器活跃）**:
+从流量推断：某 Source 最近一段时间内向 hub POST 过即为 Active。无注册表、无心跳协议——"活跃"回答的是"数据管道通不通"，浏览器没开时 browser 采集器显示为不活跃是诚实的。
+
+**Deactivate（停用采集器）**:
+hub 端拒收：被停用的 Source 在 hub 的本地黑名单中，其 POST 返回 403，段被丢弃。Agent 够不着其他进程里的插件，"停用"永远是 hub 侧行为；插件收到 403 应退避并定期重试（与 hub 未启动时的退避是同一逻辑）。插件管理 UI 位于 WPF（本机采集层事实，不进 Dashboard）。
 
 **Setup**:
 Velopack 生成的安装器（Setup.exe），用户首次安装时下载运行。

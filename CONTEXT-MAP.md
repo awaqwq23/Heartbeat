@@ -2,11 +2,21 @@
 
 Heartbeat 是一个 Windows PC 应用使用时长监控系统。系统分为三个领域上下文和一个共享内核。
 
+## Positioning
+
+**单用户自部署的个人系统，商业化是被保留的选项而非被服务的目标。** 当前唯一用户是 owner 本人；采集深度（InputEvent、loopback 不鉴权）以"用户 == 数据主人 == 部署者"为前提合法。通往多用户/消费级的门通过三条不变量保持敞开，但不为其投入当下成本：
+
+1. 每个依赖单用户前提的决定显式写进 ADR trade-off（ADR-012、ADR-017 已如此）
+2. 数据模型不焊死多租户（User/Device/OwnerId 隔离已存在）
+3. 采集能力分层可拆（ADR-017 pluggable collectors）——浅信任场景只装浅层采集器
+
+**采集边界随需求生长，不预建。** 愿景（"x年前的今天我在做什么"）的产品承诺是如实回放**数字活动**；非 PC 数据源（手机、日记、照片）在 ActivitySegment/Source 模型下天然可接入，但只在某类空白真实造成困扰时才建对应采集器。当前阶段聚焦把 PC 采集做深。
+
 ## Contexts
 
 | Context | Directory | Responsibility |
 |---------|-----------|----------------|
-| Collection | `desktop/` | 监听前台窗口切换，生成使用记录，上传至服务端 |
+| Collection | `desktop/`, `collectors/`(规划中) | 监听前台窗口切换与各应用内活动，生成使用记录，上传至服务端。`desktop/` 为 ingest hub（Agent，含 system 采集器）；`collectors/` 存放各应用内采集器（browser、vscode、…），经 loopback 汇入 hub（ADR-017） |
 | Analytics | `server/` | 接收使用数据，合并碎片记录，聚合报表 |
 | Dashboard | `frontend/` | 可视化使用数据 |
 
