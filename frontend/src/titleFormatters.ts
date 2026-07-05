@@ -75,10 +75,14 @@ const explorer: TitleFormatter = (raw) => {
 }
 
 // Edge: "页面 - 账户 - Microsoft Edge"（Edge 里的空格可能是特殊 U+200B/全角）。取首段页面名。
+// 多 tab 时页面名带 "xx 和另外 N 个页面" 后缀——N 只反映当时开了几个 tab，
+// 不是活动身份的一部分，削掉以合并同一页面的停留（中英文双语，无损仅展示）。
+const EDGE_TAB_COUNT_SUFFIX = /\s*(?:和另外\s*\d+\s*个页面|and\s+\d+\s+more\s+pages?)\s*$/i
 const edge: TitleFormatter = (raw) => {
   const parts = splitDash(raw)
   if (parts.length && /Microsoft.*Edge/i.test(parts[parts.length - 1])) parts.pop()
-  return { primary: parts[0] ?? 'Edge' }
+  const page = (parts[0] ?? '').replace(EDGE_TAB_COUNT_SUFFIX, '').trim()
+  return { primary: page.length > 0 ? page : 'Edge' }
 }
 
 /** 进程名（小写）→ formatter。 */
