@@ -1,4 +1,4 @@
-using Heartbeat.Core.DTOs.Usage;
+using Heartbeat.Core.DTOs.Segments;
 
 namespace Heartbeat.Core.Tests;
 
@@ -6,9 +6,11 @@ public class SnapshotCompactionTests
 {
     private static readonly DateTimeOffset Base = new(2025, 6, 1, 10, 0, 0, TimeSpan.Zero);
 
-    private static AppUsageItem Item(Guid id, int startSec, int endSec) => new()
+    private static ActivitySegmentItem Item(Guid id, int startSec, int endSec) => new()
     {
         Id = id,
+        Source = "system",
+        IdentityKey = "app\n",
         AppName = "app",
         StartTime = Base.AddSeconds(startSec),
         EndTime = Base.AddSeconds(endSec)
@@ -51,7 +53,7 @@ public class SnapshotCompactionTests
     [Fact]
     public void EmptyAndSingle_ReturnedAsIs()
     {
-        Assert.Empty(SnapshotCompaction.KeepLatest(new List<AppUsageItem>()));
+        Assert.Empty(SnapshotCompaction.KeepLatest(new List<ActivitySegmentItem>()));
         Assert.Single(SnapshotCompaction.KeepLatest([Item(Guid.CreateVersion7(), 0, 60)]));
     }
 }

@@ -1,5 +1,4 @@
 using Heartbeat.Core.DTOs.Segments;
-using Heartbeat.Core.DTOs.Usage;
 
 namespace Heartbeat.Core
 {
@@ -10,9 +9,6 @@ namespace Heartbeat.Core
     /// </summary>
     public static class SnapshotCompaction
     {
-        public static List<AppUsageItem> KeepLatest(List<AppUsageItem> items)
-            => Compact(items, i => i.Id, i => i.EndTime, i => i.StartTime);
-
         public static List<ActivitySegmentItem> KeepLatest(List<ActivitySegmentItem> items)
             => Compact(items, i => i.Id, i => i.EndTime, i => i.StartTime);
 

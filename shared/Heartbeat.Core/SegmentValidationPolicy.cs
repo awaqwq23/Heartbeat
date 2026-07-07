@@ -3,12 +3,16 @@ using Heartbeat.Core.DTOs.Segments;
 namespace Heartbeat.Core;
 
 /// <summary>
-/// 插件段的通用完整性校验（ADR-017）。与 <see cref="UsageValidationPolicy"/> 共用时间阈值；
-/// 差异：允许零长度段（点事件），要求 Source/IdentityKey/Id 齐全。
+/// 段的通用完整性校验（ADR-017/020，唯一摄入校验策略）：
+/// 允许零长度段（点事件），要求 Source/IdentityKey/Id 齐全，时间阈值拒收畸形数据。
 /// 不限制 Source 取值——'system' 冒充的拒收是 Agent 枢纽 loopback 层的职责（ADR-020），策略本身 source 无关。
 /// </summary>
 public static class SegmentValidationPolicy
 {
+    public static readonly TimeSpan TimeSkewTolerance = TimeSpan.FromMinutes(10);
+    public static readonly TimeSpan MaxDuration = TimeSpan.FromHours(24);
+    public static readonly int MinYear = 2020;
+
     public static List<ActivitySegmentItem> Filter(List<ActivitySegmentItem> segments, DateTimeOffset now)
     {
         return segments
@@ -17,10 +21,10 @@ public static class SegmentValidationPolicy
                      && !string.IsNullOrWhiteSpace(s.IdentityKey)
                      && s.StartTime != default
                      && s.EndTime >= s.StartTime
-                     && s.StartTime.Year >= UsageValidationPolicy.MinYear
-                     && s.EndTime <= now + UsageValidationPolicy.TimeSkewTolerance
-                     && s.StartTime >= now - UsageValidationPolicy.TimeSkewTolerance - UsageValidationPolicy.MaxDuration
-                     && (s.EndTime - s.StartTime) <= UsageValidationPolicy.MaxDuration)
+                     && s.StartTime.Year >= MinYear
+                     && s.EndTime <= now + TimeSkewTolerance
+                     && s.StartTime >= now - TimeSkewTolerance - MaxDuration
+                     && (s.EndTime - s.StartTime) <= MaxDuration)
             .OrderBy(s => s.StartTime)
             .ToList();
     }

@@ -1,7 +1,6 @@
 using Heartbeat.Core;
 using Heartbeat.Core.DTOs.Apps;
 using Heartbeat.Core.DTOs.Segments;
-using Heartbeat.Core.DTOs.Usage;
 using Heartbeat.Server.Data;
 using Heartbeat.Server.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -13,32 +12,8 @@ namespace Heartbeat.Server.Services
         private readonly AppDbContext _db = db;
 
         /// <summary>
-        /// 系统采集器路径（/usage）：老判据校验后映射为 system source 段，委托统一摄入例程。
-        /// </summary>
-        public async Task SaveUsageAsync(long deviceId, UsageUploadRequest request)
-        {
-            var validUsages = UsageValidationPolicy.Filter(request.Usages, DateTimeOffset.UtcNow);
-
-            if (validUsages.Count == 0) return;
-
-            var items = validUsages.Select(u => new ActivitySegmentItem
-            {
-                // 旧版 Agent 无 Id（Guid.Empty）→ 服务端代为生成。ADR-018 后不再续接，
-                // 旧版按 flush 周期成行（碎片），随 Agent 自动更新自然消失。
-                Id = u.Id != Guid.Empty ? u.Id : Guid.CreateVersion7(),
-                Source = ActivitySources.System,
-                IdentityKey = SystemIdentity.Key(u.AppName, u.Title),
-                AppName = u.AppName,
-                Title = u.Title,
-                StartTime = u.StartTime,
-                EndTime = u.EndTime
-            }).ToList();
-
-            await SaveSegmentsAsync(deviceId, items);
-        }
-
-        /// <summary>
         /// 统一摄入例程（ADR-018）：校验 → App 关联 → 按 Id 快照 upsert。
+        /// 唯一上传入口 /segments（ADR-020）：system 段与插件段同形，IdentityKey 由采集端计算。
         /// Id 即活动身份：已有行则扩展边界（EndTime 取 max、attributes 后写胜），新 Id 插入。
         /// 快照单调生长，摄入可交换可重入——乱序重传、批内多快照同 Id 均收敛到同一行。
         /// </summary>

@@ -1,38 +1,21 @@
 ﻿using Heartbeat.Core.DTOs.Apps;
-using Heartbeat.Core.DTOs.Usage;
 using Heartbeat.Server.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Heartbeat.Server.Controllers
 {
+    /// <summary>
+    /// system 段的查询投影（Dashboard Timeline 数据源）。
+    /// 上传入口已收敛为 POST /segments（ADR-020）——本控制器只读。
+    /// </summary>
     [ApiController]
     [Route("api/v1/usage")]
     [Authorize]
-    public class UsageController(UsageService usageService, DeviceService deviceService, ICurrentUserService currentUser) : ControllerBase
+    public class UsageController(UsageService usageService, ICurrentUserService currentUser) : ControllerBase
     {
         private readonly UsageService _usageService = usageService;
-        private readonly DeviceService _deviceService = deviceService;
         private readonly ICurrentUserService _currentUser = currentUser;
-
-        [HttpPost]
-        [EndpointName("uploadUsage")]
-        public async Task<IActionResult> Upload([FromBody] UsageUploadRequest request)
-        {
-            if (request.Usages == null || request.Usages.Count == 0)
-                return BadRequest("Usages cannot be empty.");
-
-            var userId = _currentUser.GetUserId();
-            var hardwareId = Request.Headers[DeviceService.HardwareIdHeader].FirstOrDefault();
-            var deviceName = Request.Headers[DeviceService.DeviceNameHeader].FirstOrDefault();
-
-            if (string.IsNullOrWhiteSpace(hardwareId))
-                return BadRequest($"Missing {DeviceService.HardwareIdHeader} header.");
-
-            var device = await _deviceService.ResolveByHardwareIdAsync(userId, hardwareId, deviceName);
-            await _usageService.SaveUsageAsync(device.Id, request);
-            return Ok();
-        }
 
         [HttpGet]
         [EndpointName("getUsage")]

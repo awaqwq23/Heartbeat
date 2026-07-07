@@ -3,7 +3,6 @@ using Heartbeat.Core.DTOs.Devices;
 using Heartbeat.Core.DTOs.Input;
 using Heartbeat.Core.DTOs.Reports;
 using Heartbeat.Core.DTOs.Segments;
-using Heartbeat.Core.DTOs.Usage;
 using Heartbeat.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 

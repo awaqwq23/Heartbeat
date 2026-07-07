@@ -1,6 +1,6 @@
 # 04: 服务端删 POST /usage 映射层
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 
