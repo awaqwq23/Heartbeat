@@ -83,6 +83,7 @@ namespace Heartbeat.Agent.Hosting
             services.AddSingleton<InputEventCollector>();
             services.AddSingleton<InputEventUploadService>();
             services.AddSingleton<SegmentIngestService>();
+            services.AddSingleton<SegmentIngestRequestHandler>();
             services.AddSingleton<SegmentUploadService>();
 
             // 自启动服务

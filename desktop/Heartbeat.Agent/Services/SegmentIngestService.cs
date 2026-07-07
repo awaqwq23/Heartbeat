@@ -6,7 +6,7 @@ using Serilog;
 namespace Heartbeat.Agent.Services
 {
     /// <summary>
-    /// 插件段的内存缓冲（ADR-017 枢纽的接收侧）。
+    /// 段的内存缓冲（ADR-017 枢纽的接收侧）。
     /// 接收 → 校验 → 缓冲，由 UsageUploadWorker 周期性取走上传。
     /// 缓冲按 Id 键控（ADR-018）：同段后到快照覆盖先到——快照单调生长，
     /// 最新一份携带全部信息，攒批自动压缩。
@@ -20,8 +20,9 @@ namespace Heartbeat.Agent.Services
         private const int MaxBuffered = 20000;
 
         /// <summary>
-        /// 接收一批插件段。返回接受的条数。
-        /// 拒绝 'system'（保留给内置采集器，防冒充污染统计互斥轨）；缺 Id 的补 UUIDv7。
+        /// 接收一批段。返回接受的条数。source 无关（ADR-020）：冒充守卫在
+        /// loopback 协议层（SegmentIngestRequestHandler），内置采集器进程内直调本方法。
+        /// 缺 Id 的补 UUIDv7。
         /// </summary>
         public int Accept(List<ActivitySegmentItem> segments)
         {
@@ -29,9 +30,6 @@ namespace Heartbeat.Agent.Services
 
             foreach (var s in segments)
             {
-                if (string.Equals(s.Source, ActivitySources.System, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidSourceException($"Source '{ActivitySources.System}' is reserved for the built-in collector.");
-
                 if (s.Id == Guid.Empty)
                     s.Id = Guid.CreateVersion7();
             }
@@ -73,7 +71,4 @@ namespace Heartbeat.Agent.Services
                 MaxBuffered, oldest.Id, oldest.Source);
         }
     }
-
-    /// <summary>插件段 source 非法（如冒充 'system'）。</summary>
-    public class InvalidSourceException(string message) : Exception(message);
 }

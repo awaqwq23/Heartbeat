@@ -40,12 +40,16 @@ public class SegmentIngestServiceTests
     }
 
     [Fact]
-    public void Accept_SystemSource_Throws()
+    public void Accept_SystemSource_Buffered()
     {
+        // source 无关（ADR-020）：冒充守卫在 loopback 协议层，
+        // 内置采集器进程内直调 Accept，system 段照常入缓冲。
         var svc = new SegmentIngestService(new FakeClock());
 
-        Assert.Throws<InvalidSourceException>(() => svc.Accept([Segment(source: "system")]));
-        Assert.Throws<InvalidSourceException>(() => svc.Accept([Segment(source: "System")]));
+        var accepted = svc.Accept([Segment(source: "system", identityKey: "code|main.cs")]);
+
+        Assert.Equal(1, accepted);
+        Assert.Single(svc.GetAndClearSegments());
     }
 
     [Fact]
