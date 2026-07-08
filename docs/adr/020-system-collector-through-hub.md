@@ -1,10 +1,8 @@
 # ADR-020: system 采集器成为经由枢纽的一等 Source —— 退役 POST /usage
 
-## Status: Proposed
+## Status: Accepted
 
 ## Date: 2026-07-07
-
-(pending implementation)
 
 ## Context
 
