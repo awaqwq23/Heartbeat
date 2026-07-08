@@ -1,6 +1,6 @@
 # 05: 上传通道泛化 + drain-fail 修复
 
-Status: ready-for-agent
+Status: done
 
 ## Parent
 

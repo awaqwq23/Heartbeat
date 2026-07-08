@@ -48,7 +48,7 @@ namespace Heartbeat.Agent.Services
             return Task.CompletedTask;
         }
 
-        /// <summary>取走当前缓冲的所有输入事件（供上传服务调用）。</summary>
+        /// <summary>取走当前缓冲的所有输入事件（供上传调度调用）。</summary>
         public List<InputEventItem> GetAndClearEvents()
         {
             var events = _buffer.DrainAll();
@@ -56,6 +56,9 @@ namespace Heartbeat.Agent.Services
                 Log.Information("收集到 {Count} 条输入事件，准备上传", events.Count);
             return events;
         }
+
+        /// <summary>退回重注入（ADR-020 上传通道契约）：保 Id 回队，服务端幂等去重。</summary>
+        public void Requeue(List<InputEventItem> events) => _buffer.Requeue(events);
 
         // 回调保持最小工作：仅转发给 buffer（buffer 内部为并发安全的轻量操作）
         private void OnKeyDown(int vk) => _buffer.OnKeyDown(vk);

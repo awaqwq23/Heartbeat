@@ -96,16 +96,29 @@ namespace Heartbeat.Agent.Services
             return result;
         }
 
+        /// <summary>
+        /// 退回重注入（ADR-020 上传通道契约）：既没送达也没缓存住的批原样回队，
+        /// 保留原 Id——服务端按 Id 幂等去重，重复注入不产生重复行。
+        /// </summary>
+        public void Requeue(List<InputEventItem> items)
+        {
+            foreach (var item in items)
+                EnqueueItem(item);
+        }
+
         private void Enqueue(InputEventType type, short code)
         {
-            var item = new InputEventItem
+            EnqueueItem(new InputEventItem
             {
                 Id = Guid.CreateVersion7(),
                 EventType = type,
                 Code = code,
                 Timestamp = _clock.UtcNow
-            };
+            });
+        }
 
+        private void EnqueueItem(InputEventItem item)
+        {
             _queue.Enqueue(item);
             var n = Interlocked.Increment(ref _count);
 

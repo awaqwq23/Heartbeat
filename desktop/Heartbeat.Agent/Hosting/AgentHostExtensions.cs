@@ -4,6 +4,9 @@ using Heartbeat.Agent.Services;
 using Heartbeat.Agent.Storage;
 using Heartbeat.Agent.Utils;
 using Heartbeat.Agent.Workers;
+using Heartbeat.Core;
+using Heartbeat.Core.DTOs.Input;
+using Heartbeat.Core.DTOs.Segments;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Heartbeat.Agent.Hosting
@@ -46,19 +49,19 @@ namespace Heartbeat.Agent.Hosting
             services.AddHttpClient<HeartbeatApiClient>()
                 .AddHttpMessageHandler<BearerTokenHandler>();
 
-            // 本地缓存
-            services.AddSingleton<IInputEventCache>(sp =>
+            // 本地缓存（JsonFileCache 直接充当 ICache<T> 生产 adapter，ADR-020）
+            services.AddSingleton<ICache<InputEventItem>>(sp =>
             {
                 var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
                 var cachePath = Path.Combine(localAppData, "Heartbeat", "input-events-cache.json");
-                return new InputEventLocalCache(cachePath);
+                return new JsonFileCache<InputEventItem>(cachePath, maxItems: 100_000);
             });
 
-            services.AddSingleton<ISegmentCache>(sp =>
+            services.AddSingleton<ICache<ActivitySegmentItem>>(sp =>
             {
                 var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
                 var cachePath = Path.Combine(localAppData, "Heartbeat", "segments-cache.json");
-                return new SegmentLocalCache(cachePath);
+                return new JsonFileCache<ActivitySegmentItem>(cachePath, maxItems: 20_000);
             });
 
             // 基础设施
@@ -71,13 +74,29 @@ namespace Heartbeat.Agent.Hosting
             // 业务服务
             services.AddSingleton<AppMonitorService>();
             services.AddSingleton<IconUploadService>();
-            services.AddSingleton<StatusUploadService>();
             services.AddSingleton<InputEventCollector>();
-            services.AddSingleton<InputEventUploadService>();
             services.AddSingleton<SegmentIngestService>();
             services.AddSingleton<ISegmentSink>(sp => sp.GetRequiredService<SegmentIngestService>());
             services.AddSingleton<SegmentIngestRequestHandler>();
-            services.AddSingleton<SegmentUploadService>();
+
+            // 上传通道（ADR-020）：行为差异只剩注入的 compact 策略
+            services.AddSingleton(sp =>
+            {
+                var api = sp.GetRequiredService<HeartbeatApiClient>();
+                return new UploadChannel<ActivitySegmentItem>(
+                    "段",
+                    batch => api.UploadSegmentsAsync(new SegmentUploadRequest { Segments = batch }),
+                    sp.GetRequiredService<ICache<ActivitySegmentItem>>(),
+                    SnapshotCompaction.KeepLatest);
+            });
+            services.AddSingleton(sp =>
+            {
+                var api = sp.GetRequiredService<HeartbeatApiClient>();
+                return new UploadChannel<InputEventItem>(
+                    "输入事件",
+                    batch => api.UploadInputEventsAsync(new InputEventUploadRequest { Events = batch }),
+                    sp.GetRequiredService<ICache<InputEventItem>>());
+            });
 
             // 自启动服务
             services.AddSingleton<IAutoStartService, RegistryAutoStartService>();

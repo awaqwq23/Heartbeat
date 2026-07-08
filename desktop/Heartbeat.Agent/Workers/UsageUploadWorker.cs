@@ -1,20 +1,23 @@
 using Heartbeat.Agent.Configuration;
 using Heartbeat.Agent.Services;
+using Heartbeat.Core.DTOs.Input;
+using Heartbeat.Core.DTOs.Segments;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 
 namespace Heartbeat.Agent.Workers
 {
     /// <summary>
-    /// 出网调度（ADR-020 后）：周期性 drain hub 缓冲与输入事件缓冲，cached 先于 fresh。
-    /// system 段与插件段同缓冲同路径；旧 usage 管道已退役。
+    /// 出网调度（ADR-020）：周期性 drain 两个内存缓冲进各自的上传通道，
+    /// cached 先于 fresh（离线恢复后先清积压，保持服务端时序大体有序）。
+    /// 通道退回的批重注入源 buffer——段按 Id 收敛幂等，事件保 Id 重排队。
     /// </summary>
     public class UsageUploadWorker(
         IconUploadService iconService,
         InputEventCollector inputCollector,
-        InputEventUploadService inputUploadService,
         SegmentIngestService segmentIngest,
-        SegmentUploadService segmentUploadService,
+        UploadChannel<ActivitySegmentItem> segmentChannel,
+        UploadChannel<InputEventItem> inputChannel,
         ConfigManager configManager) : BackgroundService
     {
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -32,9 +35,9 @@ namespace Heartbeat.Agent.Workers
 
                     await Task.Delay(interval, stoppingToken);
 
-                    // 先尝试上传缓存的离线记录
-                    await inputUploadService.UploadCachedAsync();
-                    await segmentUploadService.UploadCachedAsync();
+                    // cached 先于 fresh
+                    await inputChannel.UploadCachedAsync();
+                    await segmentChannel.UploadCachedAsync();
 
                     await UploadInputEventsAsync();
                     await UploadSegmentsAsync();
@@ -73,7 +76,9 @@ namespace Heartbeat.Agent.Workers
             var events = inputCollector.GetAndClearEvents();
             if (events.Count == 0) return;
 
-            await inputUploadService.UploadAsync(events);
+            var returned = await inputChannel.UploadAsync(events);
+            if (returned.Count > 0)
+                inputCollector.Requeue(returned);
         }
 
         private async Task UploadSegmentsAsync()
@@ -81,9 +86,11 @@ namespace Heartbeat.Agent.Workers
             var segments = segmentIngest.GetAndClearSegments();
             if (segments.Count == 0) return;
 
-            await segmentUploadService.UploadAsync(segments);
+            var returned = await segmentChannel.UploadAsync(segments);
+            if (returned.Count > 0)
+                segmentIngest.Accept(returned);
 
-            // 图标挂点（ADR-020）：从段批次的 AppName 关联提示触发，行为与旧 usage 批次一致。
+            // 图标挂点（ADR-020）：从段批次的 AppName 关联提示触发。
             var appNames = segments
                 .Where(s => !string.IsNullOrEmpty(s.AppName))
                 .Select(s => s.AppName!)

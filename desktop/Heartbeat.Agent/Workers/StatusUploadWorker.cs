@@ -1,13 +1,19 @@
 using Heartbeat.Agent.Configuration;
+using Heartbeat.Agent.Http;
 using Heartbeat.Agent.Services;
+using Heartbeat.Core.DTOs.Devices;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 
 namespace Heartbeat.Agent.Workers
 {
+    /// <summary>
+    /// 状态心跳上传。presence 是易逝信息：无缓存无重试是设计（下一个心跳自然覆盖），
+    /// 不入上传通道（ADR-020）。
+    /// </summary>
     public class StatusUploadWorker(
         AppMonitorService monitor,
-        StatusUploadService statusService,
+        HeartbeatApiClient apiClient,
         ConfigManager configManager) : BackgroundService
     {
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -41,7 +47,11 @@ namespace Heartbeat.Agent.Workers
         private async Task UploadStatusAsync()
         {
             var currentApp = monitor.GetCurrentApp();
-            await statusService.UploadAsync(currentApp);
+            var dto = new DeviceStatusRequest { CurrentApp = currentApp ?? string.Empty };
+
+            var result = await apiClient.SendHeartbeatAsync(dto);
+            if (result.Success)
+                Log.Debug("状态上传成功: {App}", currentApp ?? "(无)");
         }
     }
 }

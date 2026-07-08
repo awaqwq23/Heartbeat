@@ -28,6 +28,21 @@ public class InputEventBufferTests
     }
 
     [Fact]
+    public void Requeue_PreservesIds_ForIdempotentReupload()
+    {
+        // 上传通道退回契约（ADR-020）：保 Id 回队，服务端按 Id 幂等去重
+        var buf = NewBuffer();
+        buf.OnKeyDown(65);
+        buf.OnMouseButton(1);
+        var drained = buf.DrainAll();
+
+        buf.Requeue(drained);
+
+        var requeued = buf.DrainAll();
+        Assert.Equal(drained.Select(i => i.Id), requeued.Select(i => i.Id));
+    }
+
+    [Fact]
     public void OnKeyDown_FiltersAutoRepeat_UntilKeyUp()
     {
         var buf = NewBuffer();

@@ -3,12 +3,11 @@ using System.Text.Json;
 namespace Heartbeat.Agent.Storage
 {
     /// <summary>
-    /// 线程安全、原子写盘、容量受限的 JSON 列表持久化。
-    /// 捕获两个离线缓存（usage / input event）的全部公共机制：
+    /// 线程安全、原子写盘、容量受限的 JSON 列表持久化——离线缓存的唯一生产实现（ADR-020）：
     /// ReaderWriterLockSlim 并发控制、temp-swap 原子写、容量裁剪（丢最旧）、
     /// 失败回滚、加载容错。不认识任何业务语义。
     /// </summary>
-    public class JsonFileCache<T> : IDisposable
+    public class JsonFileCache<T> : ICache<T>, IDisposable
     {
         private readonly string _filePath;
         private readonly int _maxItems;

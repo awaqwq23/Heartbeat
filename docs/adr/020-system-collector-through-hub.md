@@ -74,6 +74,17 @@ reject-system 从 `SegmentIngestService.Accept` 搬到 `SegmentIngestWorker`:它
 
 <!-- Filled in as implementation lands -->
 
+- `desktop/Heartbeat.Agent/Services/ISegmentSink.cs` — monitor→hub seam(§2)
+- `desktop/Heartbeat.Agent/Services/AppMonitorService.cs` — 产段 + 闭合即推 + 30s 快照循环(§1/§2)
+- `desktop/Heartbeat.Agent/Services/SegmentIngestService.cs` — source 无关的缓冲,ISegmentSink 生产 adapter(§3)
+- `desktop/Heartbeat.Agent/Services/SegmentIngestRequestHandler.cs` — loopback 协议层 + 冒充守卫(§3)
+- `desktop/Heartbeat.Agent/Services/UploadChannel.cs` — 上传通道:"送达、缓存、或退回"(§5)
+- `desktop/Heartbeat.Agent/Storage/ICache.cs` + `JsonFileCache.cs` — 离线缓存 seam 与唯一生产实现(§5)
+- `desktop/Heartbeat.Agent/Workers/UsageUploadWorker.cs` — 出网调度 + 退回重注入 + 旧缓存孤儿化日志(§5/§6)
+- `desktop/Heartbeat.Agent/Hosting/AgentHostExtensions.cs` — 通道装配 + 托管注册顺序翻转(§6)
+- `server/Heartbeat.Server/Controllers/UsageController.cs` — 只读查询投影(§4)
+- `server/Heartbeat.Server/Services/UsageService.cs` — SaveSegmentsAsync 唯一摄入例程(§4)
+- `shared/Heartbeat.Core/SegmentValidationPolicy.cs` — 唯一摄入校验策略(§1)
 - Amends [ADR-017](./017-activity-segment-pluggable-collectors.md) §1/§2 —— 内置采集器从"绕过 hub"变为"经由 hub";数据模型与统计边界不变
 - Amends [ADR-018](./018-stable-segment-identity-snapshot-upload.md) —— 双上传入口收敛为 `/segments` 单入口;快照契约(Id 即身份、单调生长)不变
 - [ADR-008](./008-local-cache-offline-retry.md) —— usage 缓存(`LocalCache`)退役;离线重试语义由上传通道继承
