@@ -1,6 +1,7 @@
 import { ref, computed, type Ref } from 'vue'
 import type { AppSummary, AppUsageResponse, DailyReportResponse, WeeklyReportResponse } from '../api/index'
 import { fetchPublicUsage, fetchPublicDailyReport, fetchPublicWeeklyReport } from '../api/index'
+import { useAsyncData } from './useAsyncData'
 import { isAwayName } from '../appLabels'
 
 interface AppDurationLike {
@@ -36,9 +37,32 @@ export function useReports(
   selectedDevice: Ref<number>,
   selectedDate: Ref<string>,
 ) {
-  const usageData = ref<AppUsageResponse[]>([])
-  const dailyReport = ref<DailyReportResponse | null>(null)
-  const weeklyReport = ref<WeeklyReportResponse | null>(null)
+  // usage 的 start/end 是时刻过滤(UTC 瞬间):所选日期的本地 0 点起 24 小时。
+  function usageWindow() {
+    const dateObj = new Date(selectedDate.value + 'T00:00:00')
+    return {
+      start: dateObj.toISOString(),
+      end: new Date(dateObj.getTime() + 86400000).toISOString(),
+    }
+  }
+
+  const usage = useAsyncData<AppUsageResponse[]>(
+    () => fetchPublicUsage(username, { deviceId: selectedDevice.value, ...usageWindow() }),
+    [],
+  )
+  const daily = useAsyncData<DailyReportResponse | null>(
+    () => fetchPublicDailyReport(username, { deviceId: selectedDevice.value, date: selectedDate.value }),
+    null,
+  )
+  const weekly = useAsyncData<WeeklyReportResponse | null>(
+    () => fetchPublicWeeklyReport(username, { deviceId: selectedDevice.value, date: selectedDate.value }),
+    null,
+  )
+
+  const usageData = usage.data
+  const dailyReport = daily.data
+  const weeklyReport = weekly.data
+  const error = computed(() => usage.error.value ?? daily.error.value ?? weekly.error.value)
 
   // 是否把"离开"时间（息屏/睡眠/锁屏）计入统计。默认不计入。详见 ADR-014。
   const includeAway = ref(false)
@@ -78,24 +102,22 @@ export function useReports(
 
   async function loadUsage() {
     if (!selectedDevice.value) return
-    const dateObj = new Date(selectedDate.value + 'T00:00:00')
-    const start = dateObj.toISOString()
-    const end = new Date(dateObj.getTime() + 86400000).toISOString()
-    usageData.value = await fetchPublicUsage(username, { deviceId: selectedDevice.value, start, end })
+    await usage.run()
   }
 
   async function loadDaily() {
     if (!selectedDevice.value) return
-    dailyReport.value = await fetchPublicDailyReport(username, { deviceId: selectedDevice.value, date: selectedDate.value })
+    await daily.run()
   }
 
   async function loadWeekly() {
     if (!selectedDevice.value) return
-    weeklyReport.value = await fetchPublicWeeklyReport(username, { deviceId: selectedDevice.value, date: selectedDate.value })
+    await weekly.run()
   }
 
   return {
     usageData,
+    error,
     includeAway,
     appSummaries,
     awaySeconds,

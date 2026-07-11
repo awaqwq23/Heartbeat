@@ -26,6 +26,8 @@ const isOwnProfile = computed(() =>
 
 const {
   devices,
+  error,
+  refresh,
   selectedDevice,
   selectedDate,
   usageData,
@@ -47,6 +49,15 @@ const {
   keyFrequency,
   timezoneLabel,
 } = useHeartbeat(props.username)
+
+// 取数失败的人话:区分断网 / 服务端错误 / 解析异常(见 api ApiError)。
+const errorMessage = computed(() => {
+  const e = error.value
+  if (!e) return ''
+  if (e.kind === 'network') return '网络连接失败，请检查网络后重试'
+  if (e.kind === 'http') return `服务器返回错误（${e.status}），请稍后重试`
+  return '数据解析失败，请重试'
+})
 
 // Reka UI Select 用字符串值，selectedDevice 是 number —— 用 computed 双向桥接
 const selectedDeviceStr = computed({
@@ -110,6 +121,18 @@ const selectedApp = ref<{ appId: number; appName: string; totalSeconds: number }
         >登录</button>
       </div>
     </header>
+
+    <div
+      v-if="errorMessage"
+      class="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-200"
+    >
+      <span>{{ errorMessage }}</span>
+      <button
+        class="glass-control shrink-0 cursor-pointer px-3 py-1 text-[0.8rem] font-medium text-red-100 transition-colors hover:text-white"
+        :disabled="loading"
+        @click="refresh()"
+      >重试</button>
+    </div>
 
     <main>
       <StatusCards

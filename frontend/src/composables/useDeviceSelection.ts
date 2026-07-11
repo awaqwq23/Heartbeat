@@ -1,6 +1,7 @@
 import { ref, computed, onMounted } from 'vue'
 import type { DeviceInfoResponse } from '../api/index'
 import { fetchPublicDevices, fetchPublicDeviceStatus } from '../api/index'
+import { useAsyncData } from './useAsyncData'
 
 function todayStr(): string {
   const d = new Date()
@@ -12,7 +13,8 @@ function todayStr(): string {
  * onMounted 时拉取设备列表并自动选中第一台在线设备。
  */
 export function useDeviceSelection(username: string) {
-  const devices = ref<DeviceInfoResponse[]>([])
+  const devicesData = useAsyncData<DeviceInfoResponse[]>(() => fetchPublicDevices(username), [])
+  const devices = devicesData.data
   const selectedDevice = ref(0)
   const selectedDate = ref(todayStr())
 
@@ -23,21 +25,29 @@ export function useDeviceSelection(username: string) {
 
   const isToday = computed(() => selectedDate.value === todayStr())
 
-  onMounted(async () => {
-    devices.value = await fetchPublicDevices(username)
+  /** 拉设备列表并自动选中第一台在线设备。挂载时跑一次,错误重试时可重跑。 */
+  async function reload() {
+    await devicesData.run()
 
     if (devices.value.length > 0) {
       let picked = devices.value[0].id!
       for (const d of devices.value) {
-        const s = await fetchPublicDeviceStatus(username, d.id!)
-        if (s?.isOnline) { picked = d.id!; break }
+        // 单台探测失败不该中断整轮在线设备选择；失败当作"不在线"跳过。
+        try {
+          const s = await fetchPublicDeviceStatus(username, d.id!)
+          if (s?.isOnline) { picked = d.id!; break }
+        } catch { /* 跳过这台 */ }
       }
       selectedDevice.value = picked
     }
-  })
+  }
+
+  onMounted(reload)
 
   return {
     devices,
+    error: devicesData.error,
+    reload,
     selectedDevice,
     selectedDate,
     selectedDeviceName,

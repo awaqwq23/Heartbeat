@@ -14,7 +14,7 @@ export class Client {
 
     constructor(baseUrl?: string, http?: { fetch(url: RequestInfo, init?: RequestInit): Promise<Response> }) {
         this.http = http ? http : window as any;
-        this.baseUrl = baseUrl ?? "http://backend:8080/";
+        this.baseUrl = baseUrl ?? "http://localhost/";
     }
 
     /**
@@ -902,43 +902,6 @@ export class Client {
     }
 
     /**
-     * @return OK
-     */
-    uploadUsage(body: UsageUploadRequest): Promise<void> {
-        let url_ = this.baseUrl + "/api/v1/usage";
-        url_ = url_.replace(/[?&]$/, "");
-
-        const content_ = JSON.stringify(body);
-
-        let options_: RequestInit = {
-            body: content_,
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            }
-        };
-
-        return this.http.fetch(url_, options_).then((_response: Response) => {
-            return this.processUploadUsage(_response);
-        });
-    }
-
-    protected processUploadUsage(response: Response): Promise<void> {
-        const status = response.status;
-        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
-        if (status === 200) {
-            return response.text().then((_responseText) => {
-            return;
-            });
-        } else if (status !== 200 && status !== 204) {
-            return response.text().then((_responseText) => {
-            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
-            });
-        }
-        return Promise.resolve<void>(null as any);
-    }
-
-    /**
      * @param deviceId (optional) 
      * @param start (optional) 
      * @param end (optional) 
@@ -1178,70 +1141,6 @@ export class AppInfoResponse implements IAppInfoResponse {
 export interface IAppInfoResponse {
     id?: number;
     name?: string;
-
-    [key: string]: any;
-}
-
-export class AppUsageItem implements IAppUsageItem {
-    id?: string;
-    appName?: string;
-    title?: string | undefined;
-    startTime?: Date;
-    endTime?: Date;
-
-    [key: string]: any;
-
-    constructor(data?: IAppUsageItem) {
-        if (data) {
-            for (var property in data) {
-                if (data.hasOwnProperty(property))
-                    (this as any)[property] = (data as any)[property];
-            }
-        }
-    }
-
-    init(_data?: any) {
-        if (_data) {
-            for (var property in _data) {
-                if (_data.hasOwnProperty(property))
-                    this[property] = _data[property];
-            }
-            this.id = _data["id"];
-            this.appName = _data["appName"];
-            this.title = _data["title"];
-            this.startTime = _data["startTime"] ? new Date(_data["startTime"].toString()) : undefined as any;
-            this.endTime = _data["endTime"] ? new Date(_data["endTime"].toString()) : undefined as any;
-        }
-    }
-
-    static fromJS(data: any): AppUsageItem {
-        data = typeof data === 'object' ? data : {};
-        let result = new AppUsageItem();
-        result.init(data);
-        return result;
-    }
-
-    toJSON(data?: any) {
-        data = typeof data === 'object' ? data : {};
-        for (var property in this) {
-            if (this.hasOwnProperty(property))
-                data[property] = this[property];
-        }
-        data["id"] = this.id;
-        data["appName"] = this.appName;
-        data["title"] = this.title;
-        data["startTime"] = this.startTime ? this.startTime.toISOString() : undefined as any;
-        data["endTime"] = this.endTime ? this.endTime.toISOString() : undefined as any;
-        return data;
-    }
-}
-
-export interface IAppUsageItem {
-    id?: string;
-    appName?: string;
-    title?: string | undefined;
-    startTime?: Date;
-    endTime?: Date;
 
     [key: string]: any;
 }
@@ -2062,62 +1961,6 @@ export class SegmentUploadRequest implements ISegmentUploadRequest {
 
 export interface ISegmentUploadRequest {
     segments?: ActivitySegmentItem[];
-
-    [key: string]: any;
-}
-
-export class UsageUploadRequest implements IUsageUploadRequest {
-    usages?: AppUsageItem[];
-
-    [key: string]: any;
-
-    constructor(data?: IUsageUploadRequest) {
-        if (data) {
-            for (var property in data) {
-                if (data.hasOwnProperty(property))
-                    (this as any)[property] = (data as any)[property];
-            }
-        }
-    }
-
-    init(_data?: any) {
-        if (_data) {
-            for (var property in _data) {
-                if (_data.hasOwnProperty(property))
-                    this[property] = _data[property];
-            }
-            if (Array.isArray(_data["usages"])) {
-                this.usages = [] as any;
-                for (let item of _data["usages"])
-                    this.usages!.push(AppUsageItem.fromJS(item));
-            }
-        }
-    }
-
-    static fromJS(data: any): UsageUploadRequest {
-        data = typeof data === 'object' ? data : {};
-        let result = new UsageUploadRequest();
-        result.init(data);
-        return result;
-    }
-
-    toJSON(data?: any) {
-        data = typeof data === 'object' ? data : {};
-        for (var property in this) {
-            if (this.hasOwnProperty(property))
-                data[property] = this[property];
-        }
-        if (Array.isArray(this.usages)) {
-            data["usages"] = [];
-            for (let item of this.usages)
-                data["usages"].push(item ? item.toJSON() : undefined as any);
-        }
-        return data;
-    }
-}
-
-export interface IUsageUploadRequest {
-    usages?: AppUsageItem[];
 
     [key: string]: any;
 }

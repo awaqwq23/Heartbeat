@@ -1,6 +1,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import type { AppInfoResponse } from '../api/index'
+import type { AppInfoResponse, KeyFrequencyItem } from '../api/index'
 import { fetchPublicApps, fetchPublicKeyFrequency, getTimezoneLabel } from '../api/index'
+import { useAsyncData } from './useAsyncData'
 import { useDeviceSelection } from './useDeviceSelection'
 import { useDeviceStatus } from './useDeviceStatus'
 import { useReports } from './useReports'
@@ -21,7 +22,8 @@ export function useHeartbeat(username: string) {
   const selection = useDeviceSelection(username)
   const { selectedDevice, selectedDate, isToday } = selection
 
-  const apps = ref<AppInfoResponse[]>([])
+  const appsData = useAsyncData<AppInfoResponse[]>(() => fetchPublicApps(username), [])
+  const apps = appsData.data
   const loading = ref(false)
 
   const appNameMap = computed(() => {
@@ -33,22 +35,38 @@ export function useHeartbeat(username: string) {
   const status = useDeviceStatus(username, selectedDevice, isToday, appNameMap)
   const reports = useReports(username, selectedDevice, selectedDate)
 
-  const keyFrequency = ref<{ code: number; count: number }[]>([])
+  const kf = useAsyncData<KeyFrequencyItem[]>(() => {
+    const dateObj = new Date(selectedDate.value + 'T00:00:00')
+    return fetchPublicKeyFrequency(username, {
+      deviceId: selectedDevice.value,
+      start: dateObj.toISOString(),
+      end: new Date(dateObj.getTime() + 86400000).toISOString(),
+    })
+  }, [])
+  const keyFrequency = kf.data
   async function loadKeyFrequency() {
     if (!selectedDevice.value) return
-    const dateObj = new Date(selectedDate.value + 'T00:00:00')
-    const start = dateObj.toISOString()
-    const end = new Date(dateObj.getTime() + 86400000).toISOString()
-    const res = await fetchPublicKeyFrequency(username, { deviceId: selectedDevice.value, start, end })
-    keyFrequency.value = res.keys
+    await kf.run()
   }
+
+  // 任一数据域出错就点亮:UI 据此区分"出错"与"这天没数据"。
+  const error = computed(() =>
+    selection.error.value
+    ?? appsData.error.value
+    ?? status.error.value
+    ?? reports.error.value
+    ?? kf.error.value,
+  )
 
   const timezoneLabel = getTimezoneLabel()
 
   async function refresh() {
     loading.value = true
     try {
+      // 设备列表没拉起来(selectedDevice 恒为 0)时,先补拉一次,否则下面全早退。
+      if (!selectedDevice.value) await selection.reload()
       await Promise.all([
+        appsData.run(),
         reports.loadUsage(),
         status.load(),
         reports.loadDaily(),
@@ -63,7 +81,7 @@ export function useHeartbeat(username: string) {
   let usageTimer: ReturnType<typeof setInterval>
 
   onMounted(async () => {
-    apps.value = await fetchPublicApps(username)
+    await appsData.run()
 
     usageTimer = setInterval(() => {
       if (isToday.value) {
@@ -81,6 +99,8 @@ export function useHeartbeat(username: string) {
 
   return {
     devices: selection.devices,
+    error,
+    refresh,
     selectedDevice,
     selectedDeviceName: selection.selectedDeviceName,
     selectedDate,

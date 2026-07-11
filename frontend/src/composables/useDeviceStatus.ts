@@ -1,6 +1,7 @@
-import { ref, computed, onMounted, onUnmounted, type Ref, type ComputedRef } from 'vue'
+import { computed, onMounted, onUnmounted, type Ref, type ComputedRef } from 'vue'
 import type { DeviceStatusResponse } from '../api/index'
 import { fetchPublicDeviceStatus } from '../api/index'
+import { useAsyncData } from './useAsyncData'
 
 /**
  * 在场域：设备实时状态（是否在线、当前应用、最后活跃时间）。
@@ -12,7 +13,11 @@ export function useDeviceStatus(
   isToday: Ref<boolean>,
   appNameMap: ComputedRef<Map<number, string>>,
 ) {
-  const deviceStatus = ref<DeviceStatusResponse | null>(null)
+  const status = useAsyncData<DeviceStatusResponse | null>(
+    () => fetchPublicDeviceStatus(username, selectedDevice.value),
+    null,
+  )
+  const deviceStatus = status.data
 
   const isAlive = computed(() => isToday.value && (deviceStatus.value?.isOnline ?? false))
   const currentApp = computed(() => deviceStatus.value?.currentApp ?? null)
@@ -34,7 +39,7 @@ export function useDeviceStatus(
 
   async function load() {
     if (!selectedDevice.value) return
-    deviceStatus.value = await fetchPublicDeviceStatus(username, selectedDevice.value)
+    await status.run()
   }
 
   let timer: ReturnType<typeof setInterval>
@@ -47,6 +52,7 @@ export function useDeviceStatus(
 
   return {
     deviceStatus,
+    error: status.error,
     isAlive,
     currentApp,
     currentAppId,

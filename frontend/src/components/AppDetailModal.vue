@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { computed, watch, onMounted, onUnmounted } from 'vue'
 import { getIconUrl, fetchPublicSegments } from '../api/index'
 import type { AppUsageResponse, SegmentResponse } from '../api/index'
+import { useAsyncData } from '../composables/useAsyncData'
 import { formatDuration } from '../composables/useHeartbeat'
 import { formatTitle } from '../titleFormatters'
 import { upgradeBreakdown } from '../labelUpgrade'
@@ -22,25 +23,20 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [] }>()
 
 // ── 插件段(非 system 轨) ──
-const pluginSegments = ref<SegmentResponse[]>([])
-const loading = ref(false)
+const segs = useAsyncData<SegmentResponse[]>(() => {
+  const dateObj = new Date(props.selectedDate + 'T00:00:00')
+  return fetchPublicSegments(props.username, {
+    deviceId: props.deviceId,
+    appId: props.app.appId,
+    start: dateObj.toISOString(),
+    end: new Date(dateObj.getTime() + 86400000).toISOString(),
+  })
+}, [])
+const pluginSegments = segs.data
+const loading = segs.pending
+const segmentsFailed = computed(() => segs.error.value !== null)
 
-async function loadSegments() {
-  loading.value = true
-  try {
-    const dateObj = new Date(props.selectedDate + 'T00:00:00')
-    pluginSegments.value = await fetchPublicSegments(props.username, {
-      deviceId: props.deviceId,
-      appId: props.app.appId,
-      start: dateObj.toISOString(),
-      end: new Date(dateObj.getTime() + 86400000).toISOString(),
-    })
-  } finally {
-    loading.value = false
-  }
-}
-
-watch(() => props.app.appId, loadSegments, { immediate: true })
+watch(() => props.app.appId, () => segs.run(), { immediate: true })
 
 // ── 多轨回放（静态视窗 = 全部轨道数据的时间包络；模型在 timeline/replayModel.ts）──
 
@@ -175,7 +171,7 @@ onUnmounted(() => {
               </div>
             </div>
             <div v-else class="rounded-md border border-border bg-secondary py-6 text-center text-[0.8rem] text-muted-foreground">
-              {{ loading ? '加载中…' : '当日无回放数据' }}
+              {{ loading ? '加载中…' : segmentsFailed ? '回放数据加载失败' : '当日无回放数据' }}
             </div>
           </section>
 
