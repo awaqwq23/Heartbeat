@@ -7,7 +7,7 @@ namespace Heartbeat.Agent.Services
 {
     /// <summary>
     /// 段的内存缓冲（ADR-017 枢纽的接收侧）。
-    /// 接收 → 校验 → 缓冲，由 UsageUploadWorker 周期性取走上传。
+    /// 接收 → 校验 → 缓冲，由 UploadWorker 周期性取走上传。
     /// 缓冲按 Id 键控（ADR-018）：同段后到快照覆盖先到——快照单调生长，
     /// 最新一份携带全部信息，攒批自动压缩。
     /// </summary>

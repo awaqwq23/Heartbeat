@@ -11,8 +11,8 @@ namespace Heartbeat.Agent.Workers
     /// 出网调度（ADR-020/022）：周期性驱动各上传流 drain 一轮。
     /// 退回重注入由流自持（ADR-022），本类只负责节律与图标挂点。
     /// </summary>
-    public class UsageUploadWorker(
-        IconUploadService iconService,
+    public class UploadWorker(
+        IIconUploadService iconService,
         UploadStream<ActivitySegmentItem> segmentStream,
         UploadStream<InputEventItem> inputStream,
         ConfigManager configManager) : BackgroundService
@@ -61,8 +61,11 @@ namespace Heartbeat.Agent.Workers
             await base.StopAsync(cancellationToken);
         }
 
-        /// <summary>驱动两条流各 drain 一轮；段批次顺带触发图标挂点（ADR-020 §6）。</summary>
-        private async Task DrainOnceAsync()
+        /// <summary>
+        /// 驱动两条流各 drain 一轮；段批次顺带触发图标挂点（ADR-020 §6）。
+        /// 周期循环与 StopAsync 终态 drain 共用此入口；测试直接调用模拟一轮调度。
+        /// </summary>
+        public async Task DrainOnceAsync()
         {
             await inputStream.DrainAsync();
             var segments = await segmentStream.DrainAsync();

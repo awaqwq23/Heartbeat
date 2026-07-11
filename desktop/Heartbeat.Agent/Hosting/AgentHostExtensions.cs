@@ -74,6 +74,7 @@ namespace Heartbeat.Agent.Hosting
             // 业务服务
             services.AddSingleton<AppMonitorService>();
             services.AddSingleton<IconUploadService>();
+            services.AddSingleton<IIconUploadService>(sp => sp.GetRequiredService<IconUploadService>());
             // 输入缓冲为共享单例：collector 写入，出网侧经 IUploadSource drain
             services.AddSingleton(sp => new InputEventBuffer(sp.GetRequiredService<IClock>()));
             services.AddSingleton<IUploadSource<InputEventItem>>(sp => sp.GetRequiredService<InputEventBuffer>());
@@ -108,9 +109,10 @@ namespace Heartbeat.Agent.Hosting
             services.AddSingleton<IAutoStartService, RegistryAutoStartService>();
 
             // 托管后台服务。停止顺序为注册的逆序：AppMonitorService 必须最后注册、最先停止，
-            // 使其终态快照先推入 hub，再由 UsageUploadWorker.StopAsync 的最终 drain 带走（ADR-020）。
+            // 使其终态快照先推入 hub，再由 UploadWorker.StopAsync 的最终 drain 带走（ADR-020）。
+            // 此顺序由 AgentHostExtensionsTests 钉住。
             services.AddHostedService(sp => sp.GetRequiredService<InputEventCollector>());
-            services.AddHostedService<UsageUploadWorker>();
+            services.AddHostedService<UploadWorker>();
             services.AddHostedService<StatusUploadWorker>();
             services.AddHostedService<SegmentIngestWorker>();
             services.AddHostedService(sp => sp.GetRequiredService<AppMonitorService>());

@@ -5,7 +5,16 @@ using Serilog;
 
 namespace Heartbeat.Agent.Services
 {
-    public class IconUploadService(HeartbeatApiClient apiClient)
+    /// <summary>
+    /// 图标上传的窄 seam：生产实现经 IconHelper 提取真实进程图标（不可脱离活进程测试），
+    /// 测试注入 fake（IAccessTokenProvider 先例）。
+    /// </summary>
+    public interface IIconUploadService
+    {
+        Task EnsureIconUploadedAsync(string appName);
+    }
+
+    public class IconUploadService(HeartbeatApiClient apiClient) : IIconUploadService
     {
         private readonly HashSet<string> _uploadedApps = new(StringComparer.OrdinalIgnoreCase);
 

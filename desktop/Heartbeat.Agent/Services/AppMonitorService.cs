@@ -86,7 +86,7 @@ namespace Heartbeat.Agent.Services
             Log.Information("应用监测服务停止");
             _snapshotCts?.Cancel();
 
-            // 终态快照：注册顺序保证本服务先于 UsageUploadWorker 停止（ADR-020），
+            // 终态快照：注册顺序保证本服务先于 UploadWorker 停止（ADR-020），
             // 快照进入 hub 后由 worker 的最终 drain 带走。
             PushCurrentSnapshot();
 
