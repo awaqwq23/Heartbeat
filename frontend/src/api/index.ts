@@ -1,5 +1,19 @@
-import { Client, DailyReportResponse, WeeklyReportResponse, AppInfoResponse, DeviceInfoResponse, DeviceStatusResponse, AppUsageResponse, SegmentResponse } from './client'
+import { Client, ApiException, DailyReportResponse, WeeklyReportResponse, AppInfoResponse, DeviceInfoResponse, DeviceStatusResponse, AppUsageResponse, SegmentResponse } from './client'
 import { authStore } from '../stores/auth'
+
+// ===== Error model =====
+// 取数失败的归一形态。让取数策略层能区分"出错"(network/http/parse)与"没数据"(空数组)。
+export type ApiError =
+  | { kind: 'network' }               // fetch 抛 TypeError:断网 / DNS / CORS
+  | { kind: 'http'; status: number }  // 4xx/5xx:NSwag ApiException.status
+  | { kind: 'parse' }                 // 响应体不是预期结构
+
+/** 把 NSwag ApiException、原生 fetch TypeError、以及其它意外统一成 ApiError。 */
+export function toApiError(e: unknown): ApiError {
+  if (ApiException.isApiException(e)) return { kind: 'http', status: e.status }
+  if (e instanceof TypeError) return { kind: 'network' }
+  return { kind: 'parse' }
+}
 
 // ===== Base URL =====
 const BASE_URL = ''
