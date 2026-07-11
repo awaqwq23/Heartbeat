@@ -73,7 +73,8 @@ async function tryRefresh(): Promise<boolean> {
       })
       if (!res.ok) return false
       const data = await res.json()
-      setAuth(data.accessToken, data.userId ?? userId.value!, data.refreshToken)
+      // 第三参是 username（传 undefined 保持已存值）；轮换后的 refresh token 是第四参
+      setAuth(data.accessToken, data.userId ?? userId.value!, undefined, data.refreshToken)
       return true
     } catch {
       return false
