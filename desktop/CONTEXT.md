@@ -5,7 +5,7 @@
 ## Language
 
 **Agent**:
-后台采集引擎，兼任本机 ingest hub（ADR-017）：监听窗口切换生成 system 段，接收各 Collector 经 loopback 推送的插件段，统一缓存与上传。
+后台采集引擎，兼任本机 ingest hub（ADR-017）：监听窗口切换生成 system 段，接收各 Collector 经 loopback 推送的插件段，统一缓存与上传。hub 同时维护集面读模型（Current Activity + per-Source last-seen），是 WPF 与 Heartbeat 的唯一读表面（ADR-021）。
 _Avoid_: Service, Worker（这些是 Agent 内部的实现层）
 
 **Collector（采集器）**:
@@ -16,7 +16,15 @@ _Avoid_: Service, Worker（这些是 Agent 内部的实现层）
 _Avoid_: UploadService（退役的三份同构模板）
 
 **Active（采集器活跃）**:
-从流量推断：某 Source 最近一段时间内向 hub POST 过即为 Active。无注册表、无心跳协议——"活跃"回答的是"数据管道通不通"，浏览器没开时 browser 采集器显示为不活跃是诚实的。
+从流量推断：某 Source 最近一段时间内向 hub POST 过即为 Active。机制为 hub 读模型的 per-Source last-seen（`Accept` 时刻戳，ADR-021）。无注册表、无心跳协议——"活跃"回答的是"数据管道通不通"，浏览器没开时 browser 采集器显示为不活跃是诚实的。
+
+**Current Activity（当前活动）**:
+集面读模型中"此刻在干什么"的条目：由 system 采集器在转场点（前台切换、进出 away）推送进 hub，进程内事件驱动、零延迟；away 原样暴露（`__away__`），语义解释留给消费者。WPF 当前应用显示与 Heartbeat 的唯一数据源。
+_Avoid_: 从段流量派生（快照节律 + ≥1s 噪声闸门使派生值在转场后最长 30s 指向上一个 app，ADR-021 否决）
+
+**Heartbeat（心跳）**:
+presence 通道：周期 keepalive（活性，间隔为代码常量、不进配置）+ 变了就推（新鲜度），Current Activity 搭车上行。无缓存无重试（易逝信息，下一个心跳自然覆盖）。服务端在线窗口 ≥ 2× keepalive 间隔（ADR-021）。
+_Avoid_: Status Upload（旧名，只描述了周期维度）
 
 **Deactivate（停用采集器）**:
 hub 端拒收：被停用的 Source 在 hub 的本地黑名单中，其 POST 返回 403，段被丢弃。Agent 够不着其他进程里的插件，"停用"永远是 hub 侧行为；插件收到 403 应退避并定期重试（与 hub 未启动时的退避是同一逻辑）。插件管理 UI 位于 WPF（本机采集层事实，不进 Dashboard）。
