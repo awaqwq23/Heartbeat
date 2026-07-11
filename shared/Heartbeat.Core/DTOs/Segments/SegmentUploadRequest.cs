@@ -3,9 +3,9 @@ using System.Text.Json;
 namespace Heartbeat.Core.DTOs.Segments
 {
     /// <summary>
-    /// 插件采集器段的上传/接收形状（ADR-017）。
-    /// 系统采集器仍走 /usage（AppName 必填）；
-    /// 本形状面向插件 source（browser / vscode / …），经 Agent 本地枢纽转发。
+    /// 段的统一上传/接收形状（ADR-017/020）：POST /segments 是唯一上传入口。
+    /// system 段由 Agent 内置采集器进程内产出，插件段（browser / vscode / …）
+    /// 经 loopback 汇入枢纽，同一批次上传。
     /// </summary>
     public class SegmentUploadRequest
     {
@@ -14,13 +14,13 @@ namespace Heartbeat.Core.DTOs.Segments
 
     public class ActivitySegmentItem
     {
-        /// <summary>UUIDv7，采集器生成，兼作服务端去重键；空则由枢纽补齐。</summary>
+        /// <summary>UUIDv7，活动开始时由采集器生成，即活动身份（同一活动跨快照同 Id，ADR-018）；空则由枢纽补齐。</summary>
         public Guid Id { get; set; }
 
-        /// <summary>观测者：'browser' / 'vscode' / …。'system' 保留给内置采集器，ingest 拒收。</summary>
+        /// <summary>观测者：'system' / 'browser' / 'vscode' / …。'system' 保留给内置采集器，loopback 冒充由枢纽协议层拒收（ADR-020）。</summary>
         public string Source { get; set; } = string.Empty;
 
-        /// <summary>采集器声明的"同一个活动"判据，服务端跨批次续接用。</summary>
+        /// <summary>采集器声明的"同一个活动"判据；服务端 upsert 的 identity guard，查询/回放按其分组（ADR-018）。</summary>
         public string IdentityKey { get; set; } = string.Empty;
 
         /// <summary>关联提示：段发生在哪个 App 里（进程名），用于回放挂轨/复用图标。可空。</summary>

@@ -63,7 +63,8 @@ namespace Heartbeat.Server.Data
                 entity.HasIndex(e => e.DeviceId);
                 entity.HasIndex(e => e.StartTime);
 
-                // 复合索引：续接查询按同设备+同 Source+同 IdentityKey 找最新记录（ADR-017）
+                // 复合索引：ADR-017 的续接查询已随 ADR-018 退役（摄入走 PK upsert）；
+                // 保留用于回放/查询按 (Source, IdentityKey) 过滤分组。
                 entity.HasIndex(e => new { e.DeviceId, e.Source, e.IdentityKey, e.EndTime });
             });
 

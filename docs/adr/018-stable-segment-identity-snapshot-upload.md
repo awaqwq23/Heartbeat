@@ -42,7 +42,7 @@ Three repair layers exist today: client in-batch merge (`UsageMerger.Merge`, sys
 
 - **Identity guard:** an update is applied only if the existing row's `(Source, IdentityKey)` matches the incoming item; on mismatch the item is rejected and logged. A misbehaving collector reusing Ids cannot corrupt foreign rows — the loopback trust model (ADR-017 §1) is unchanged.
 - **Cross-batch continuation (`CanMerge`) and the DB latest-record lookup are deleted.** Continuation and idempotency collapse into one mechanism: the primary key. The 1s tolerance and the first-of-batch limitation disappear with them.
-- Id-less legacy uploads (pre-UUIDv7 agents) are still accepted — the server generates an Id per item — but are no longer glued. Accepted: single-user self-hosted fleet with auto-update (ADR-009); agents upgrade in lockstep with the server.
+- Id-less legacy uploads (pre-UUIDv7 agents) are still accepted — the server generates an Id per item — but are no longer glued. Accepted: single-user self-hosted fleet with auto-update (ADR-009); agents upgrade in lockstep with the server. *(Superseded by ADR-020: the legacy `/usage` entry retired and `SegmentValidationPolicy` — now the sole ingest validator — rejects empty Ids on `/segments`; the id-less acceptance path no longer exists. The hub still back-fills empty Ids for in-process/loopback pushes before upload.)*
 
 ### 3. Simplifications that fall out
 
