@@ -1,13 +1,15 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
+using Heartbeat.WPF.ViewModels;
 
 namespace Heartbeat.WPF
 {
     public partial class MainWindow : Window
     {
-        public MainWindow()
+        public MainWindow(MainViewModel viewModel)
         {
             InitializeComponent();
+            DataContext = viewModel;
             Closing += MainWindow_Closing;
         }
 

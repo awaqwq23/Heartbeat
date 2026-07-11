@@ -4,7 +4,6 @@ using Heartbeat.Agent.Configuration;
 using Heartbeat.Agent.Services;
 using Heartbeat.Core;
 using Heartbeat.WPF.Logging;
-using Microsoft.Extensions.DependencyInjection;
 using Serilog.Events;
 using System.Windows;
 
@@ -54,14 +53,22 @@ namespace Heartbeat.WPF.ViewModels
 
         private readonly List<LogEntry> _allLogs = [];
         private int _logLineCount;
-        private readonly int _maxLogLines = App.LogSink.Capacity;
+        private readonly int _maxLogLines;
+        private readonly RingBufferSink _logSink;
         private bool _suppressAutoStartEvent;
 
-        public MainViewModel()
+        /// <summary>依赖全部构造注入（ADR-021）：VM 不再 service-locate，可脱离运行中的 App 实例化。</summary>
+        public MainViewModel(
+            ConfigManager configManager,
+            ICollectionStatus status,
+            IAutoStartService autoStartService,
+            RingBufferSink logSink)
         {
-            _configManager = App.ConfigManager;
-            _status = App.Services.GetRequiredService<ICollectionStatus>();
-            _autoStartService = App.Services.GetRequiredService<IAutoStartService>();
+            _configManager = configManager;
+            _status = status;
+            _autoStartService = autoStartService;
+            _logSink = logSink;
+            _maxLogLines = logSink.Capacity;
 
             LoadConfig();
             LoadAutoStartState();
@@ -71,10 +78,10 @@ namespace Heartbeat.WPF.ViewModels
 
             // 订阅事件
             _status.CurrentAppChanged += HandleCurrentAppChanged;
-            App.LogSink.LogChanged += HandleLogChanged;
+            _logSink.LogChanged += HandleLogChanged;
 
             // 加载已有日志（GetAll 同时会同步 lastNotifiedAt，后续事件只推增量）
-            var existingLogs = App.LogSink.GetAll();
+            var existingLogs = _logSink.GetAll();
             if (existingLogs.Count > 0)
             {
                 _allLogs.AddRange(existingLogs);
@@ -217,7 +224,7 @@ namespace Heartbeat.WPF.ViewModels
         public void Dispose()
         {
             _status.CurrentAppChanged -= HandleCurrentAppChanged;
-            App.LogSink.LogChanged -= HandleLogChanged;
+            _logSink.LogChanged -= HandleLogChanged;
             GC.SuppressFinalize(this);
         }
     }

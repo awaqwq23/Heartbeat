@@ -4,9 +4,11 @@ using System.Windows.Interop;
 using H.NotifyIcon;
 using Heartbeat.Agent.Configuration;
 using Heartbeat.Agent.Hosting;
+using Heartbeat.Agent.Services;
 using Heartbeat.Agent.Utils;
 using Heartbeat.WPF.Logging;
 using Heartbeat.WPF.Services;
+using Heartbeat.WPF.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
@@ -161,7 +163,13 @@ namespace Heartbeat.WPF
         {
             if (_mainWindow == null || !_mainWindow.IsLoaded)
             {
-                _mainWindow = new MainWindow();
+                // 组合边界：VM 依赖在此装配（ADR-021——VM 自身不再 service-locate）。
+                var viewModel = new MainViewModel(
+                    ConfigManager,
+                    Services.GetRequiredService<ICollectionStatus>(),
+                    Services.GetRequiredService<IAutoStartService>(),
+                    LogSink);
+                _mainWindow = new MainWindow(viewModel);
             }
 
             _mainWindow.Show();
