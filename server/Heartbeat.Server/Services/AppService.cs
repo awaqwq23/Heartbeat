@@ -10,18 +10,6 @@ namespace Heartbeat.Server.Services
     {
         private readonly AppDbContext _db = db;
 
-        public async Task<List<AppInfoResponse>> GetAllAsync()
-        {
-            return await _db.Apps
-                .AsNoTracking()
-                .Select(a => new AppInfoResponse
-                {
-                    Id = a.Id,
-                    Name = a.Name
-                })
-                .ToListAsync();
-        }
-
         public async Task<List<AppInfoResponse>> GetAppsForUserAsync(string ownerId)
         {
             // 只看 system 段：App 列表 = 该用户前台用过的应用。插件段的 AppId 是关联提示，不定义"用过"。
