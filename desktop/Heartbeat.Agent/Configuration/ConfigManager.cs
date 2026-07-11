@@ -183,7 +183,6 @@ namespace Heartbeat.Agent.Configuration
                 AuthServiceBaseUrl = source.AuthServiceBaseUrl,
                 DeviceName = source.DeviceName,
                 UploadIntervalMinutes = source.UploadIntervalMinutes,
-                StatusUploadIntervalSeconds = source.StatusUploadIntervalSeconds,
                 AwayProcessNames = [.. source.AwayProcessNames ?? []],
                 IngestPort = source.IngestPort,
             };

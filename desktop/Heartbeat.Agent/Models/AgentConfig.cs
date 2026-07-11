@@ -14,12 +14,8 @@ namespace Heartbeat.Agent.Models
             set => _uploadIntervalMinutes = value < 1 ? 1 : value;
         }
 
-        private int _statusUploadIntervalSeconds = 30;
-        public int StatusUploadIntervalSeconds
-        {
-            get => _statusUploadIntervalSeconds;
-            set => _statusUploadIntervalSeconds = value < 5 ? 5 : value;
-        }
+        // StatusUploadIntervalSeconds 已随 ADR-021 退役：心跳节律为代码常量
+        // （StatusUploadWorker.KeepaliveInterval），旧 config.json 中的字段被反序列化静默忽略。
 
         /// <summary>
         /// 前台进程名命中此列表时，该使用段被归一化为 away 段（仅改名，不驱动 away 状态机）。

@@ -34,8 +34,7 @@ try
 
     Log.Information("Heartbeat 客户端启动 (Console)");
     Log.Information("Base URL: {URL}", config.ApiBaseUrl);
-    Log.Information("配置加载完成 - 上传间隔: {Upload}min, 状态间隔: {Status}s",
-        config.UploadIntervalMinutes, config.StatusUploadIntervalSeconds);
+    Log.Information("配置加载完成 - 上传间隔: {Upload}min", config.UploadIntervalMinutes);
 
     var builder = Host.CreateApplicationBuilder(args);
     builder.Services.AddSerilog();

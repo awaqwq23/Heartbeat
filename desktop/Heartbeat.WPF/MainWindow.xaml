@@ -123,7 +123,6 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Grid.Column="0" Text="API Base URL" VerticalAlignment="Center" Margin="0,0,16,12"/>
@@ -141,13 +140,10 @@
                     <TextBlock Grid.Row="4" Grid.Column="0" Text="上传间隔 (分钟)" VerticalAlignment="Center" Margin="0,0,16,12"/>
                     <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding UploadIntervalMinutes, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
 
-                    <TextBlock Grid.Row="5" Grid.Column="0" Text="状态间隔 (秒)" VerticalAlignment="Center" Margin="0,0,16,12"/>
-                    <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding StatusUploadIntervalSeconds, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
-
-                    <CheckBox Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Content="开机自启动"
+                    <CheckBox Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" Content="开机自启动"
                               IsChecked="{Binding AutoStartEnabled}" Margin="0,4,0,12"/>
 
-                    <Button Grid.Row="7" Grid.Column="1" Content="保存配置"
+                    <Button Grid.Row="6" Grid.Column="1" Content="保存配置"
                             HorizontalAlignment="Right" Padding="16,8"
                             Command="{Binding SaveConfigCommand}"/>
                 </Grid>

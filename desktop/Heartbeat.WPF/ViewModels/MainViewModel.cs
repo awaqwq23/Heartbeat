@@ -35,9 +35,6 @@ namespace Heartbeat.WPF.ViewModels
         private string _uploadIntervalMinutes = "1";
 
         [ObservableProperty]
-        private string _statusUploadIntervalSeconds = "30";
-
-        [ObservableProperty]
         private bool _autoStartEnabled;
 
         [ObservableProperty]
@@ -111,7 +108,6 @@ namespace Heartbeat.WPF.ViewModels
             AuthServiceBaseUrl = config.AuthServiceBaseUrl;
             DeviceName = config.DeviceName;
             UploadIntervalMinutes = config.UploadIntervalMinutes.ToString();
-            StatusUploadIntervalSeconds = config.StatusUploadIntervalSeconds.ToString();
         }
 
         private void LoadAutoStartState()
@@ -148,12 +144,6 @@ namespace Heartbeat.WPF.ViewModels
                 return;
             }
 
-            if (!int.TryParse(StatusUploadIntervalSeconds, out var statusInterval) || statusInterval < 1)
-            {
-                ShowSaveStatus("状态间隔必须为正整数", isError: true);
-                return;
-            }
-
             _configManager.Update(c =>
             {
                 c.ApiBaseUrl = ApiBaseUrl.Trim();
@@ -161,7 +151,6 @@ namespace Heartbeat.WPF.ViewModels
                 c.AuthServiceBaseUrl = AuthServiceBaseUrl.Trim();
                 c.DeviceName = DeviceName.Trim();
                 c.UploadIntervalMinutes = uploadInterval;
-                c.StatusUploadIntervalSeconds = statusInterval;
             });
 
             ShowSaveStatus("配置已保存，下次上传周期将使用新配置");
