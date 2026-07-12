@@ -13,7 +13,7 @@ graph TB
 
         subgraph Agent["Heartbeat.Agent (Library)"]
             Monitor["AppMonitorService<br/><i>WinEvent Hook</i>"]
-            Ingest["SegmentIngestWorker<br/><i>loopback hub :48200 (ADR-017)</i>"]
+            Ingest["SegmentIngestWorker<br/><i>loopback hub :24820 (ADR-017)</i>"]
             Workers["UsageUpload / StatusUpload<br/>IconUpload / SegmentUpload Workers"]
             Cache["LocalCache<br/><i>JSON file</i>"]
             Helpers["ActiveWindowHelper<br/>IconHelper<br/><i>P/Invoke</i>"]
@@ -167,7 +167,7 @@ Client conventions (see `frontend/src/api/index.ts`):
 
 ### 4b. Feed plugin segments through the local ingest hub (ADR-017)
 
-The Agent opens a loopback ingest hub (`http://127.0.0.1:48200/v1/segments`, `ingestPort`
+The Agent opens a loopback ingest hub (`http://127.0.0.1:24820/v1/segments`, `ingestPort`
 in config.json) that per-app collectors (browser extension, VSCode plugin, …) POST folded
 segments to; the hub forwards them through the same offline-cache + upload pipeline as
 system usage. To exercise it without a real collector, POST a segment yourself while the
@@ -180,7 +180,7 @@ $body = @{ segments = @(@{
   endTime = (Get-Date).ToUniversalTime().ToString("o")
   attributes = @{ url = "https://example.com/page" }
 }) } | ConvertTo-Json -Depth 5
-Invoke-RestMethod -Uri http://127.0.0.1:48200/v1/segments -Method Post `
+Invoke-RestMethod -Uri http://127.0.0.1:24820/v1/segments -Method Post `
   -ContentType application/json -Body $body
 ```
 

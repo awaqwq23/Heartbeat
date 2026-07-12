@@ -48,6 +48,25 @@ public class SegmentIngestRequestHandlerTests
     }
 
     [Fact]
+    public async Task HubIdentity_200_HeartbeatJson()
+    {
+        // 采集器凭此在端口范围内识别 hub（陌生服务不会这样应答）。
+        var response = await _handler.HandleAsync("GET", "/v1/hub", Body(""));
+
+        Assert.Equal(200, response.StatusCode);
+        Assert.True(response.IsJson);
+        Assert.Equal("""{"app":"heartbeat","proto":1}""", response.Body);
+    }
+
+    [Fact]
+    public async Task HubIdentity_WrongMethod_404()
+    {
+        var response = await _handler.HandleAsync("POST", "/v1/hub", Body("{}"));
+
+        Assert.Equal(404, response.StatusCode);
+    }
+
+    [Fact]
     public async Task WrongMethod_404()
     {
         var response = await _handler.HandleAsync("GET", "/v1/segments", Body("{}"));

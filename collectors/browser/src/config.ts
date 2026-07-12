@@ -4,8 +4,8 @@ export interface CollectorConfig {
   port: number
 }
 
-/** 与 Agent 侧 AgentConfig.IngestPort 默认值一致。 */
-export const DEFAULT_CONFIG: CollectorConfig = { port: 48200 }
+/** 与 Agent 侧 AgentConfig.IngestPort 默认值一致（选址理由见彼处注释）。 */
+export const DEFAULT_CONFIG: CollectorConfig = { port: 24820 }
 
 const CONFIG_KEY = 'config'
 

@@ -15,7 +15,7 @@ import {
 } from './fold'
 import { domainOf, identityKeyOf } from './normalize'
 import { uuidv7 } from './ids'
-import { postSegments } from './hub'
+import { postToHub } from './hub'
 import { loadConfig } from './config'
 import { backoffAfterFailure, noBackoff, shouldSkipAttempt, type BackoffState } from './backoff'
 
@@ -27,6 +27,7 @@ const MAX_QUEUED = 5000
 const STATE_KEY = 'foldState'
 const QUEUE_KEY = 'pendingSegments'
 const BACKOFF_KEY = 'backoff'
+const HUB_PORT_KEY = 'hubPort'
 const ALARM_NAME = 'heartbeat-flush'
 
 const deps: FoldDeps = {
@@ -87,6 +88,17 @@ async function saveBackoff(state: BackoffState): Promise<void> {
   await chrome.storage.session.set({ [BACKOFF_KEY]: state })
 }
 
+/** hub 实际端口缓存（session：hub 顺延是运行时状态，浏览器重启后从基准端口重来）。 */
+async function loadHubPort(basePort: number): Promise<number> {
+  const got = await chrome.storage.session.get(HUB_PORT_KEY)
+  const port = Number(got[HUB_PORT_KEY])
+  return Number.isInteger(port) && port >= basePort ? port : basePort
+}
+
+async function saveHubPort(port: number): Promise<void> {
+  await chrome.storage.session.set({ [HUB_PORT_KEY]: port })
+}
+
 /** 入队按 Id 键控：同段后到快照覆盖先到（快照单调生长，攒批自动压缩，ADR-018）。 */
 async function enqueue(snapshots: SegmentSnapshot[]): Promise<void> {
   if (snapshots.length === 0) return
@@ -128,13 +140,17 @@ async function flushAndUpload(): Promise<void> {
   const items = Object.values(queue)
   if (items.length === 0) return
 
-  const { port } = await loadConfig()
-  const result = await postSegments(port, items)
+  const { port: basePort } = await loadConfig()
+  const targetPort = await loadHubPort(basePort)
+  const { result, port } = await postToHub(basePort, targetPort, items)
+  if (port !== targetPort) await saveHubPort(port)
+
   if (result === 'ok') {
     await saveQueue({})
     if (backoff.fails > 0) await saveBackoff(noBackoff)
   } else if (result === 'rejected') {
     // 毒批次整批丢弃：hub 明确拒绝的数据重传无意义（403 停用语义见 issue 04）。
+    // 身份已由 postToHub 确认——陌生服务的 4xx 不会走到这里。
     console.warn(`[heartbeat] hub 拒收 ${items.length} 条段，丢弃`)
     await saveQueue({})
     if (backoff.fails > 0) await saveBackoff(noBackoff)

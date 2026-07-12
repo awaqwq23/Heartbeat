@@ -20,10 +20,20 @@ namespace Heartbeat.Agent.Services
 
         public sealed record Response(int StatusCode, string Body, bool IsJson);
 
+        /// <summary>
+        /// 身份应答：采集器发现 hub 端口时以 GET /v1/hub 探测，凭此确认对端是 heartbeat
+        /// 而非恰好占用该端口的陌生服务（否则陌生 4xx 会被误判为"hub 拒收"而丢队列）。
+        /// proto 为 ingest 协议版本，语义变更时递增。
+        /// </summary>
+        public const string HubIdentityJson = """{"app":"heartbeat","proto":1}""";
+
         public async Task<Response> HandleAsync(string httpMethod, string? path, Stream body)
         {
+            if (httpMethod == "GET" && path == "/v1/hub")
+                return new Response(200, HubIdentityJson, true);
+
             if (httpMethod != "POST" || path != "/v1/segments")
-                return new Response(404, "not found; POST /v1/segments", false);
+                return new Response(404, "not found; POST /v1/segments | GET /v1/hub", false);
 
             SegmentUploadRequest? dto;
             try

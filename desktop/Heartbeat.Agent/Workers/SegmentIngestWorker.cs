@@ -17,31 +17,76 @@ namespace Heartbeat.Agent.Workers
         SegmentIngestRequestHandler handler,
         ConfigManager configManager) : BackgroundService
     {
+        /// <summary>
+        /// 端口浮动范围：基准端口被占时向上顺延试绑的端口数。
+        /// 采集器按同一范围探测（GET /v1/hub 验身份），两侧约定一致。
+        /// </summary>
+        public const int PortRange = 10;
+
+        /// <summary>范围内全部被占时的重试间隔：占用者（如未退净的旧实例）通常短时间内让位。</summary>
+        private static readonly TimeSpan RetryInterval = TimeSpan.FromSeconds(30);
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var port = configManager.Current.IngestPort;
-            if (port <= 0)
+            var basePort = configManager.Current.IngestPort;
+            if (basePort <= 0)
             {
-                Log.Information("本地 ingest 枢纽未启用（ingestPort = {Port}）", port);
+                Log.Information("本地 ingest 枢纽未启用（ingestPort = {Port}）", basePort);
                 return;
             }
 
-            using var listener = new HttpListener();
-            // loopback 限定：非本机流量到不了这个前缀。
-            listener.Prefixes.Add($"http://127.0.0.1:{port}/");
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                using var listener = TryStartListener(basePort, out var port);
+                if (listener == null)
+                {
+                    Log.Warning(
+                        "本地 ingest 枢纽启动失败（端口 {BasePort}–{EndPort} 均被占用），{Retry} 秒后重试",
+                        basePort, basePort + PortRange - 1, RetryInterval.TotalSeconds);
+                    try
+                    {
+                        await Task.Delay(RetryInterval, stoppingToken);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return;
+                    }
+                    continue;
+                }
 
-            try
-            {
-                listener.Start();
-            }
-            catch (HttpListenerException ex)
-            {
-                Log.Error(ex, "本地 ingest 枢纽启动失败（端口 {Port} 可能被占用），插件采集不可用", port);
+                Log.Information("本地 ingest 枢纽已启动: http://127.0.0.1:{Port}/", port);
+                await ServeAsync(listener, stoppingToken);
+                Log.Information("本地 ingest 枢纽已停止");
                 return;
             }
+        }
 
-            Log.Information("本地 ingest 枢纽已启动: http://127.0.0.1:{Port}/", port);
+        /// <summary>从基准端口起顺延试绑 <see cref="PortRange"/> 个端口，全占返回 null。</summary>
+        private static HttpListener? TryStartListener(int basePort, out int boundPort)
+        {
+            for (var port = basePort; port < basePort + PortRange && port <= 65535; port++)
+            {
+                var listener = new HttpListener();
+                // loopback 限定：非本机流量到不了这个前缀。
+                listener.Prefixes.Add($"http://127.0.0.1:{port}/");
+                try
+                {
+                    listener.Start();
+                    boundPort = port;
+                    return listener;
+                }
+                catch (HttpListenerException ex)
+                {
+                    listener.Close();
+                    Log.Debug(ex, "端口 {Port} 被占用，尝试下一个", port);
+                }
+            }
+            boundPort = 0;
+            return null;
+        }
 
+        private async Task ServeAsync(HttpListener listener, CancellationToken stoppingToken)
+        {
             using var _ = stoppingToken.Register(listener.Stop);
 
             while (!stoppingToken.IsCancellationRequested)
@@ -67,8 +112,6 @@ namespace Heartbeat.Agent.Workers
                     TryRespond(ctx, 500, "internal error");
                 }
             }
-
-            Log.Information("本地 ingest 枢纽已停止");
         }
 
         private async Task HandleRequestAsync(HttpListenerContext ctx)
