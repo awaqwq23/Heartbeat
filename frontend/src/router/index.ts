@@ -3,7 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 const RESERVED_ROUTES = ['settings', 'callback']
 
 const router = createRouter({
-  history: createWebHistory('/'),
+  history: createWebHistory('/heartbeat/'),
   routes: [
     {
       path: '/',

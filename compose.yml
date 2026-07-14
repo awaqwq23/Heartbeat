@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:18.4-alpine
+    mem_limit: 256m
     restart: unless-stopped
     environment:
       POSTGRES_USER: heartbeat
