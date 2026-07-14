@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE: ghcr.io/shenxianovo/heartbeat-frontend
+  IMAGE: ghcr.io/awaqwq233/heartbeat-frontend
 
 jobs:
   build:

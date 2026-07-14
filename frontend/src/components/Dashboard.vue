@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useHeartbeat } from '../composables/useHeartbeat'
-import { authStore } from '../stores/auth'
 import ActivityTimeline from './ActivityTimeline.vue'
 import StatusCards from './StatusCards.vue'
 import CurrentAppPanel from './CurrentAppPanel.vue'
@@ -19,10 +18,6 @@ import {
 import DatePicker from './DatePicker.vue'
 
 const props = defineProps<{ username: string }>()
-
-const isOwnProfile = computed(() =>
-  authStore.isAuthenticated && authStore.username.value === props.username
-)
 
 const {
   devices,
@@ -105,20 +100,9 @@ const selectedApp = ref<{ appId: number; appName: string; totalSeconds: number }
         >{{ includeAway ? '含离开' : '不含离开' }}</button>
 
         <a
-          v-if="isOwnProfile"
           href="/heartbeat/settings"
           class="glass-control px-3 py-1.5 text-[0.8rem] text-muted-foreground no-underline hover:text-foreground"
         >设置</a>
-        <button
-          v-if="authStore.isAuthenticated"
-          class="glass-control px-3 py-1.5 text-[0.8rem] text-muted-foreground hover:text-foreground"
-          @click="authStore.logout()"
-        >登出</button>
-        <button
-          v-else
-          class="glass-control px-3 py-1.5 text-[0.8rem] font-medium text-primary"
-          @click="authStore.redirectToLogin()"
-        >登录</button>
       </div>
     </header>
 

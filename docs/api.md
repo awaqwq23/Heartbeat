@@ -76,7 +76,7 @@ nswag openapi2tsclient /input:http://localhost:8080/openapi/v1.json /output:fron
 # 自查用
 
 ```
-Base URL: https://shenxianovo.com/heartbeat/api/v1
+Base URL: https://awaqwq233.com/heartbeat/api/v1
 - devices (GET)                 // 前端用：获取设备列表
   - {deviceId} (GET)            // 前端用：获取单个设备信息
   - heartbeat (POST)            // 客户端用：上传设备心跳

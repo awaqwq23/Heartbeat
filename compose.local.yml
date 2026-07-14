@@ -35,9 +35,10 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=heartbeat;Username=heartbeat;Password=devlocal"
-      AuthService__Authority: ${AUTH_AUTHORITY}
-      AuthService__Issuer: ${AUTH_ISSUER:-https://auth.shenxianovo.com}
-      AuthService__Audience: ${AUTH_AUDIENCE:-https://auth.shenxianovo.com}
+      # 鉴权暂时禁用，以下变量保留供恢复时使用
+      # AuthService__Authority: ${AUTH_AUTHORITY}
+      # AuthService__Issuer: ${AUTH_ISSUER:-https://auth.awaqwq233.com}
+      # AuthService__Audience: ${AUTH_AUDIENCE:-https://auth.awaqwq233.com}
     networks:
       - local
 

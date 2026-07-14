@@ -1,13 +1,11 @@
 ﻿using Heartbeat.Core.DTOs.Devices;
 using Heartbeat.Server.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Heartbeat.Server.Controllers
 {
     [ApiController]
     [Route("api/v1/devices")]
-    [Authorize]
     public class DeviceController(DeviceService deviceService, ICurrentUserService currentUser) : ControllerBase
     {
         private readonly DeviceService _deviceService = deviceService;

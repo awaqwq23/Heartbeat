@@ -4,15 +4,15 @@
 
 ## Date: 2026-06-29
 
-[`257cb31`](https://github.com/shenxianovo/heartbeat/commit/257cb31) — feat(core): add input event upload DTO
-[`b3a7cee`](https://github.com/shenxianovo/heartbeat/commit/b3a7cee) — feat(server): add InputEvent entity and migration
-[`7a28c5f`](https://github.com/shenxianovo/heartbeat/commit/7a28c5f) — feat(server): add POST /input-events upload endpoint with idempotent dedup
-[`93e4525`](https://github.com/shenxianovo/heartbeat/commit/93e4525) — feat(server): add GET /input-events/counts endpoint
-[`fb8ba5a`](https://github.com/shenxianovo/heartbeat/commit/fb8ba5a) — feat(agent): add InputEventBuffer with auto-repeat filter and scroll normalization
-[`946aaeb`](https://github.com/shenxianovo/heartbeat/commit/946aaeb) — feat(agent): add low-level keyboard/mouse hook and InputEventCollector
-[`01c24aa`](https://github.com/shenxianovo/heartbeat/commit/01c24aa) — feat(agent): upload input events with offline cache via existing worker
-[`5d6f7d1`](https://github.com/shenxianovo/heartbeat/commit/5d6f7d1) — feat(server): add public per-key frequency endpoint for keyboard heatmap
-[`d35b596`](https://github.com/shenxianovo/heartbeat/commit/d35b596) — feat(frontend): add keyboard heatmap card with per-key frequency and fun stats
+[`257cb31`](https://github.com/awaqwq233/heartbeat/commit/257cb31) — feat(core): add input event upload DTO
+[`b3a7cee`](https://github.com/awaqwq233/heartbeat/commit/b3a7cee) — feat(server): add InputEvent entity and migration
+[`7a28c5f`](https://github.com/awaqwq233/heartbeat/commit/7a28c5f) — feat(server): add POST /input-events upload endpoint with idempotent dedup
+[`93e4525`](https://github.com/awaqwq233/heartbeat/commit/93e4525) — feat(server): add GET /input-events/counts endpoint
+[`fb8ba5a`](https://github.com/awaqwq233/heartbeat/commit/fb8ba5a) — feat(agent): add InputEventBuffer with auto-repeat filter and scroll normalization
+[`946aaeb`](https://github.com/awaqwq233/heartbeat/commit/946aaeb) — feat(agent): add low-level keyboard/mouse hook and InputEventCollector
+[`01c24aa`](https://github.com/awaqwq233/heartbeat/commit/01c24aa) — feat(agent): upload input events with offline cache via existing worker
+[`5d6f7d1`](https://github.com/awaqwq233/heartbeat/commit/5d6f7d1) — feat(server): add public per-key frequency endpoint for keyboard heatmap
+[`d35b596`](https://github.com/awaqwq233/heartbeat/commit/d35b596) — feat(frontend): add keyboard heatmap card with per-key frequency and fun stats
 
 ## Context
 

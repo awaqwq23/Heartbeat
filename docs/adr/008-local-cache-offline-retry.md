@@ -4,8 +4,8 @@
 
 ## Date: 2026-03-03
 
-[`b851b7c`](https://github.com/shenxianovo/heartbeat/commit/b851b7c) — feat: refactor app monitor and upload service, add .NET general host
-[`8bc6966`](https://github.com/shenxianovo/heartbeat/commit/8bc6966) — refactor(client): extract monitoring service to Heartbeat.Agent
+[`b851b7c`](https://github.com/awaqwq233/heartbeat/commit/b851b7c) — feat: refactor app monitor and upload service, add .NET general host
+[`8bc6966`](https://github.com/awaqwq233/heartbeat/commit/8bc6966) — refactor(client): extract monitoring service to Heartbeat.Agent
 
 ## Context
 

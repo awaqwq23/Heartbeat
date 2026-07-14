@@ -4,7 +4,7 @@
 
 ## Date: 2026-03-18
 
-[`8bc6966`](https://github.com/shenxianovo/heartbeat/commit/8bc6966) — refactor(client): extract monitoring service to Heartbeat.Agent
+[`8bc6966`](https://github.com/awaqwq233/heartbeat/commit/8bc6966) — refactor(client): extract monitoring service to Heartbeat.Agent
 
 ## Context
 

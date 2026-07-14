@@ -16,7 +16,7 @@
 
 ## Date: 2026-03-04
 
-[`877851d`](https://github.com/shenxianovo/heartbeat/commit/877851d) — refactor: move ApiKey from DTOs to request header, update related services for authentication
+[`877851d`](https://github.com/awaqwq233/heartbeat/commit/877851d) — refactor: move ApiKey from DTOs to request header, update related services for authentication
 
 ## Context
 

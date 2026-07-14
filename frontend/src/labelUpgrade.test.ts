@@ -24,7 +24,7 @@ describe('overlapMs', () => {
 describe('upgradeBreakdown', () => {
   it('有重叠插件段：标签升级为页面标题/URL，时长取 system 段', () => {
     const rows = upgradeBreakdown(
-      [sys(0, 60_000, '补药视奸我 和另外 2 个页面')],
+      [sys(0, 60_000, '快来视奸我 和另外 2 个页面')],
       [page(0, 55_000, 'https://github.com/x', 'GitHub PR', 'https://github.com/x?tab=1')],
       passthrough,
     )

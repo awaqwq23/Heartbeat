@@ -29,16 +29,17 @@ namespace Heartbeat.Server.Migrations
                 defaultValue: "");
 
             // Backfill existing devices with real MachineGuid values
+            // 设备名已随用户需求更新：PC-工位 → PC-笔记本，PC → PC台式机
             migrationBuilder.Sql("""
                 UPDATE "Devices"
                 SET "OwnerId" = '019d9026-def4-74db-bf9a-f854c16a993e',
                     "HardwareId" = 'd543153b-f4f1-4c51-9f84-edd978401935'
-                WHERE "DeviceName" = 'PC-工位';
+                WHERE "DeviceName" = 'PC-笔记本';
 
                 UPDATE "Devices"
                 SET "OwnerId" = '019d9026-def4-74db-bf9a-f854c16a993e',
                     "HardwareId" = '0b2ab3f5-f79c-4bbe-997f-0a1fbe1f33b6'
-                WHERE "DeviceName" = 'PC';
+                WHERE "DeviceName" = 'PC台式机';
                 """);
 
             migrationBuilder.CreateIndex(

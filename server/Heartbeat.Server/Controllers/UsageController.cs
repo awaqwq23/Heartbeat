@@ -1,6 +1,5 @@
 ﻿using Heartbeat.Core.DTOs.Apps;
 using Heartbeat.Server.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Heartbeat.Server.Controllers
@@ -11,7 +10,6 @@ namespace Heartbeat.Server.Controllers
     /// </summary>
     [ApiController]
     [Route("api/v1/usage")]
-    [Authorize]
     public class UsageController(UsageService usageService, ICurrentUserService currentUser) : ControllerBase
     {
         private readonly UsageService _usageService = usageService;

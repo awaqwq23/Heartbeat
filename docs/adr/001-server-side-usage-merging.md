@@ -4,7 +4,7 @@
 
 ## Date: 2026-02-26
 
-[`328b754`](https://github.com/shenxianovo/heartbeat/commit/328b754) — feat: merge overlapping app usage durations
+[`328b754`](https://github.com/awaqwq233/heartbeat/commit/328b754) — feat: merge overlapping app usage durations
 
 ## Context
 

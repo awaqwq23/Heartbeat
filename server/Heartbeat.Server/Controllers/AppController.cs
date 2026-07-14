@@ -1,13 +1,11 @@
 using Heartbeat.Core.DTOs.Apps;
 using Heartbeat.Server.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Heartbeat.Server.Controllers
 {
     [ApiController]
     [Route("api/v1/apps")]
-    [Authorize]
     public class AppController(AppService appService, ICurrentUserService currentUser) : ControllerBase
     {
         private readonly AppService _appService = appService;
@@ -21,7 +19,6 @@ namespace Heartbeat.Server.Controllers
             return await _appService.GetAppsForUserAsync(userId);
         }
 
-        [AllowAnonymous]
         [HttpGet("{appId:long}/icon")]
         [EndpointName("getAppIcon")]
         public async Task<IActionResult> GetIcon(long appId)
@@ -33,7 +30,6 @@ namespace Heartbeat.Server.Controllers
             return File(iconData, "image/png");
         }
 
-        [Authorize]
         [HttpPost("icon")]
         [EndpointName("uploadAppIcon")]
         public async Task<IActionResult> UploadIcon([FromBody] IconUploadRequest request)

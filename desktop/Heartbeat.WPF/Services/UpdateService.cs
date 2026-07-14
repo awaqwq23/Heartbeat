@@ -8,7 +8,7 @@ namespace Heartbeat.WPF.Services;
 public sealed class UpdateService : IDisposable
 {
     private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(4);
-    private const string RepoUrl = "https://github.com/shenxianovo/Heartbeat";
+    private const string RepoUrl = "https://github.com/awaqwq233/Heartbeat";
 
     private readonly UpdateManager _updateManager;
     private Timer? _timer;

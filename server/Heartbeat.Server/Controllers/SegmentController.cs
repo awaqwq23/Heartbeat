@@ -1,6 +1,5 @@
 using Heartbeat.Core.DTOs.Segments;
 using Heartbeat.Server.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Heartbeat.Server.Controllers
@@ -12,7 +11,6 @@ namespace Heartbeat.Server.Controllers
     /// </summary>
     [ApiController]
     [Route("api/v1/segments")]
-    [Authorize]
     public class SegmentController(
         UsageService usageService,
         DeviceService deviceService,

@@ -4,7 +4,7 @@
 
 ## Date: 2026-03-03
 
-[`b851b7c`](https://github.com/shenxianovo/heartbeat/commit/b851b7c) — feat: refactor app monitor and upload service, add .NET general host
+[`b851b7c`](https://github.com/awaqwq233/heartbeat/commit/b851b7c) — feat: refactor app monitor and upload service, add .NET general host
 
 ## Context
 

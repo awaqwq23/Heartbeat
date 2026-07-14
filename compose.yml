@@ -17,21 +17,22 @@ services:
       - backend
 
   backend:
-    image: ghcr.io/shenxianovo/heartbeat-backend:latest
+    image: ghcr.io/awaqwq233/heartbeat-backend:latest
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=heartbeat;Username=heartbeat;Password=${DB_PASSWORD}"
-      AuthService__Authority: ${AUTH_AUTHORITY}
-      AuthService__Issuer: ${AUTH_ISSUER:-https://auth.shenxianovo.com}
-      AuthService__Audience: ${AUTH_AUDIENCE:-https://auth.shenxianovo.com}
+      # 鉴权暂时禁用，以下变量保留供恢复时使用
+      # AuthService__Authority: ${AUTH_AUTHORITY}
+      # AuthService__Issuer: ${AUTH_ISSUER:-https://auth.awaqwq233.com}
+      # AuthService__Audience: ${AUTH_AUDIENCE:-https://auth.awaqwq233.com}
     networks:
       - backend
 
   frontend:
-    image: ghcr.io/shenxianovo/heartbeat-frontend:latest
+    image: ghcr.io/awaqwq233/heartbeat-frontend:latest
     restart: unless-stopped
     depends_on:
       - backend

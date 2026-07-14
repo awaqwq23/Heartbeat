@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE: ghcr.io/shenxianovo/heartbeat-backend
+  IMAGE: ghcr.io/awaqwq233/heartbeat-backend
 
 jobs:
   build:

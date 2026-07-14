@@ -4,7 +4,7 @@
 
 ## Date: 2026-02-27
 
-[`0ad53dc`](https://github.com/shenxianovo/heartbeat/commit/0ad53dc) — feat: implement event-driven foreground window tracking
+[`0ad53dc`](https://github.com/awaqwq233/heartbeat/commit/0ad53dc) — feat: implement event-driven foreground window tracking
 
 ## Context
 

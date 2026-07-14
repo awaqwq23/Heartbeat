@@ -1,8 +1,6 @@
 using Heartbeat.Server.Data;
 using Heartbeat.Server.Services;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,36 +16,18 @@ builder.Services.AddScoped<DeviceService>();
 builder.Services.AddScoped<AppService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<InputEventService>();
-builder.Services.AddHttpClient("AuthService", client =>
-{
-    client.BaseAddress = new Uri(builder.Configuration["AuthService:Authority"]!);
-});
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddHealthChecks();
 
-// JWT Bearer authentication - validate tokens issued by AuthService
-// Keys are auto-discovered via {Authority}/.well-known/openid-configuration
-var authSection = builder.Configuration.GetSection("AuthService");
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.Authority = authSection["Authority"];
-        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
-        options.MapInboundClaims = false;
-
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = authSection["Issuer"],
-            ValidAudience = authSection["Audience"],
-            NameClaimType = "preferred_username",
-            RoleClaimType = "role",
-        };
-    });
+// 鉴权已暂时禁用（用户要求 "暂时不需要登录功能"）。
+// 恢复时取消以下注释并添加对应 using：
+//   using Microsoft.AspNetCore.Authentication.JwtBearer;
+//   using Microsoft.IdentityModel.Tokens;
+// var authSection = builder.Configuration.GetSection("AuthService");
+// builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+//     .AddJwtBearer(options => { ... });
+// 同时恢复 app.UseAuthentication(); app.UseAuthorization(); 以及 controller 上的 [Authorize] 属性。
 
 var app = builder.Build();
 
@@ -63,8 +43,8 @@ using (var scope = app.Services.CreateScope())
     db.Database.Migrate();
 }
 
-app.UseAuthentication();
-app.UseAuthorization();
+// app.UseAuthentication(); // 暂时禁用
+// app.UseAuthorization();  // 暂时禁用
 
 app.MapControllers();
 app.MapHealthChecks("/health");

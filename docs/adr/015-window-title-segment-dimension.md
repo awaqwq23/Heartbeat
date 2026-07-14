@@ -4,8 +4,8 @@
 
 ## Date: 2026-07-01
 
-[`407bfb4`](https://github.com/shenxianovo/heartbeat/commit/407bfb4) — feat: capture window title as a segment-level dimension
-[`f70ba58`](https://github.com/shenxianovo/heartbeat/commit/f70ba58) — fix: capture same-window title changes via EVENT_OBJECT_NAMECHANGE
+[`407bfb4`](https://github.com/awaqwq233/heartbeat/commit/407bfb4) — feat: capture window title as a segment-level dimension
+[`f70ba58`](https://github.com/awaqwq233/heartbeat/commit/f70ba58) — fix: capture same-window title changes via EVENT_OBJECT_NAMECHANGE
 
 ## Context
 

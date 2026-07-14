@@ -4,7 +4,7 @@
 
 ## Date: YYYY-MM-DD
 
-[`commit_hash`](https://github.com/shenxianovo/heartbeat/commit/commit_hash) — commit message
+[`commit_hash`](https://github.com/awaqwq233/heartbeat/commit/commit_hash) — commit message
 
 ## Context
 

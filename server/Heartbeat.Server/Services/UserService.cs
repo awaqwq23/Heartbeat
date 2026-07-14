@@ -1,28 +1,30 @@
-using System.Text.Json;
 using Heartbeat.Server.Data;
 using Heartbeat.Server.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Heartbeat.Server.Services
 {
-    public class UserService(AppDbContext db, IHttpClientFactory httpClientFactory)
+    /// <summary>
+    /// 用户解析服务（登录暂时禁用）。
+    /// 不再依赖外部 AuthService，改为在本地自动创建用户。
+    /// PublicUserController 依赖此服务按 username 查找用户信息。
+    /// </summary>
+    public class UserService(AppDbContext db)
     {
         private readonly AppDbContext _db = db;
-        private readonly IHttpClientFactory _httpClientFactory = httpClientFactory;
 
         public async Task<User?> ResolveByUsernameAsync(string username)
         {
+            // 先在本地查找
             var user = await _db.Users
                 .FirstOrDefaultAsync(u => u.Username == username);
 
             if (user != null) return user;
 
-            var resolved = await FetchFromAuthServiceAsync(username);
-            if (resolved == null) return null;
-
+            // 找不到则自动创建（不再调用外部 AuthService）
             user = new User
             {
-                Id = resolved.Value.UserId,
+                Id = Guid.NewGuid().ToString(),
                 Username = username,
                 LastSeenAt = DateTimeOffset.UtcNow
             };
@@ -30,23 +32,6 @@ namespace Heartbeat.Server.Services
             await _db.SaveChangesAsync();
 
             return user;
-        }
-
-        private async Task<AuthUserInfo?> FetchFromAuthServiceAsync(string username)
-        {
-            var client = _httpClientFactory.CreateClient("AuthService");
-            var response = await client.GetAsync($"/api/v1/users/{username}");
-            if (!response.IsSuccessStatusCode) return null;
-
-            var json = await response.Content.ReadFromJsonAsync<JsonElement>();
-            if (!json.TryGetProperty("id", out var idProp)) return null;
-
-            return new AuthUserInfo { UserId = idProp.GetString()! };
-        }
-
-        private record struct AuthUserInfo
-        {
-            public string UserId { get; init; }
         }
     }
 }

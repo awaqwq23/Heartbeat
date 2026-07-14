@@ -3,9 +3,9 @@ import { formatTitle } from './titleFormatters'
 
 describe('formatTitle: msedge', () => {
   it('削掉 " 和另外 N 个页面" 后缀，与无后缀标题合并为同一 primary', () => {
-    const a = formatTitle('msedge', '补药视奸我ヽ（≧□≦）ノ 和另外 2 个页面')
-    const b = formatTitle('msedge', '补药视奸我ヽ（≧□≦）ノ')
-    expect(a.primary).toBe('补药视奸我ヽ（≧□≦）ノ')
+    const a = formatTitle('msedge', '快来视奸我ヽ（≧□≦）ノ 和另外 2 个页面')
+    const b = formatTitle('msedge', '快来视奸我ヽ（≧□≦）ノ')
+    expect(a.primary).toBe('快来视奸我ヽ（≧□≦）ノ')
     expect(a.primary).toBe(b.primary)
   })
 

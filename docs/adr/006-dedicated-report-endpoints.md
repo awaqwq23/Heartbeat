@@ -4,7 +4,7 @@
 
 ## Date: 2026-03-05
 
-[`04120cc`](https://github.com/shenxianovo/heartbeat/commit/04120cc) — feat: redesign API structure for usage and device status
+[`04120cc`](https://github.com/awaqwq233/heartbeat/commit/04120cc) — feat: redesign API structure for usage and device status
 
 ## Context
 

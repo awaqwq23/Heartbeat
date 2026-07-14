@@ -4,7 +4,7 @@
 
 ## Date: 2026-03-19
 
-[`0bcc0db`](https://github.com/shenxianovo/heartbeat/commit/0bcc0db) — fix(db): disable auto migration in production environment
+[`0bcc0db`](https://github.com/awaqwq233/heartbeat/commit/0bcc0db) — fix(db): disable auto migration in production environment
 
 ## Context
 

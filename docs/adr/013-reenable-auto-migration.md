@@ -4,7 +4,7 @@
 
 ## Date: 2026-06-29
 
-[`8c1b58e`](https://github.com/shenxianovo/heartbeat/commit/8c1b58e) — fix(server): auto-apply migrations in all environments (supersedes ADR-007)
+[`8c1b58e`](https://github.com/awaqwq233/heartbeat/commit/8c1b58e) — fix(server): auto-apply migrations in all environments (supersedes ADR-007)
 
 ## Context
 

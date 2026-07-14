@@ -6,7 +6,7 @@ const { isDark } = useTheme()
 
 <template>
   <img
-    src="/mascot.png"
+    src="/boqi.png"
     alt=""
     aria-hidden="true"
     class="mascot"
