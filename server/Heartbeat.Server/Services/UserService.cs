@@ -7,7 +7,8 @@ namespace Heartbeat.Server.Services
     /// <summary>
     /// 用户解析服务（登录暂时禁用）。
     /// 不再依赖外部 AuthService，改为在本地自动创建用户。
-    /// PublicUserController 依赖此服务按 username 查找用户信息。
+    /// 默认用户 awaqwq233 使用与 CurrentUserService 一致的固定 ID，
+    /// 确保 Agent 上传的数据（OwnerId）与前端查询的用户 ID 匹配。
     /// </summary>
     public class UserService(AppDbContext db)
     {
@@ -21,10 +22,15 @@ namespace Heartbeat.Server.Services
 
             if (user != null) return user;
 
+            // 默认用户使用固定 ID，与 CurrentUserService 保持一致
+            var id = username == "awaqwq233"
+                ? CurrentUserService.DefaultUserId
+                : Guid.NewGuid().ToString();
+
             // 找不到则自动创建（不再调用外部 AuthService）
             user = new User
             {
-                Id = Guid.NewGuid().ToString(),
+                Id = id,
                 Username = username,
                 LastSeenAt = DateTimeOffset.UtcNow
             };
