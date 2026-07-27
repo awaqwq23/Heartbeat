@@ -654,7 +654,7 @@ export class Client {
     }
 
     /**
-     * @param date (optional) 
+     * @param date (optional)
      * @return OK
      */
     getUserDailyRecap(username: string, date: Date | undefined): Promise<DailyRecapResponse> {
