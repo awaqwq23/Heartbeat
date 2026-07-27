@@ -2,7 +2,9 @@ using Heartbeat.Core.DTOs.Apps;
 using Heartbeat.Core.DTOs.Devices;
 using Heartbeat.Core.DTOs.Input;
 using Heartbeat.Core.DTOs.Reports;
+using Heartbeat.Core.DTOs.Recaps;
 using Heartbeat.Core.DTOs.Segments;
+using Heartbeat.Server.Entities;
 using Heartbeat.Server.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,6 +12,10 @@ namespace Heartbeat.Server.Controllers
 {
     // 查询端点统一用 ActionResult<T>:响应 schema 由返回类型自动推断进 OpenAPI,
     // NSwag 客户端才能生成带类型的方法(IActionResult 是不透明盒子,会生成 Promise<void>)。
+    //
+    // 可见性门（ADR-025）：private 用户对匿名/他人一律 404（不泄露用户名存在性），
+    // 本人带 JWT（sub == User.Id）不受 IsPublic 影响。无 [Authorize]，但携带
+    // Bearer 时认证中间件仍会填充 principal，据此识别本人。
     [ApiController]
     [Route("api/v1/users/{username}")]
     public class PublicUserController(
@@ -18,13 +24,25 @@ namespace Heartbeat.Server.Controllers
         ReportService reportService,
         UsageService usageService,
         AppService appService,
-        InputEventService inputEventService) : ControllerBase
+        InputEventService inputEventService,
+        RecapService recapService,
+        ICurrentUserService currentUser) : ControllerBase
     {
+        /// <summary>解析用户名并施加可见性门：不存在或对当前调用者不可见都返回 null（上层 404）。</summary>
+        private async Task<User?> ResolveVisibleAsync(string username)
+        {
+            var user = await userService.ResolveByUsernameAsync(username);
+            if (user == null) return null;
+
+            if (user.IsPublic) return user;
+            return currentUser.GetUserIdOrNull() == user.Id ? user : null;
+        }
+
         [HttpGet("devices")]
         [EndpointName("getUserDevices")]
         public async Task<ActionResult<List<DeviceInfoResponse>>> GetDevices(string username)
         {
-            var user = await userService.ResolveByUsernameAsync(username);
+            var user = await ResolveVisibleAsync(username);
             if (user == null) return NotFound();
 
             return await deviceService.GetAllAsync(user.Id);
@@ -37,7 +55,7 @@ namespace Heartbeat.Server.Controllers
             [FromQuery] long? deviceId,
             [FromQuery] DateTimeOffset? date)
         {
-            var user = await userService.ResolveByUsernameAsync(username);
+            var user = await ResolveVisibleAsync(username);
             if (user == null) return NotFound();
 
             var targetDate = date ?? DateTimeOffset.UtcNow;
@@ -51,11 +69,28 @@ namespace Heartbeat.Server.Controllers
             [FromQuery] long? deviceId,
             [FromQuery] DateTimeOffset? date)
         {
-            var user = await userService.ResolveByUsernameAsync(username);
+            var user = await ResolveVisibleAsync(username);
             if (user == null) return NotFound();
 
             var targetDate = date ?? DateTimeOffset.UtcNow;
             return await reportService.GetWeeklyReportAsync(user.Id, deviceId, targetDate);
+        }
+
+
+        [HttpGet("recaps/daily")]
+        [EndpointName("getUserDailyRecap")]
+        public async Task<ActionResult<DailyRecapResponse>> GetDailyRecap(
+            string username,
+            [FromQuery] DateTimeOffset? date,
+            CancellationToken ct)
+        {
+            var user = await ResolveVisibleAsync(username);
+            if (user == null) return NotFound();
+
+            // 公开路径只读缓存：访客不能触发生成，也没有 force 参数。
+            var recap = await recapService.GetCachedDailyRecapAsync(
+                user.Id, date ?? DateTimeOffset.UtcNow, ct);
+            return recap == null ? NotFound() : recap;
         }
 
         [HttpGet("usage")]
@@ -66,7 +101,7 @@ namespace Heartbeat.Server.Controllers
             [FromQuery] DateTimeOffset? start,
             [FromQuery] DateTimeOffset? end)
         {
-            var user = await userService.ResolveByUsernameAsync(username);
+            var user = await ResolveVisibleAsync(username);
             if (user == null) return NotFound();
 
             return await usageService.GetUsageAsync(user.Id, deviceId, start, end);
@@ -82,7 +117,7 @@ namespace Heartbeat.Server.Controllers
             [FromQuery] DateTimeOffset? start,
             [FromQuery] DateTimeOffset? end)
         {
-            var user = await userService.ResolveByUsernameAsync(username);
+            var user = await ResolveVisibleAsync(username);
             if (user == null) return NotFound();
 
             return await usageService.GetSegmentsAsync(user.Id, deviceId, source, appId, start, end);
@@ -92,17 +127,32 @@ namespace Heartbeat.Server.Controllers
         [EndpointName("getUserApps")]
         public async Task<ActionResult<List<AppInfoResponse>>> GetApps(string username)
         {
-            var user = await userService.ResolveByUsernameAsync(username);
+            var user = await ResolveVisibleAsync(username);
             if (user == null) return NotFound();
 
             return await appService.GetAppsForUserAsync(user.Id);
+        }
+
+        // 图标经 <img src> 加载，带不了 JWT，故匿名可达但受同一可见性门约束；
+        // owner 上下文取自 URL 的 username（图标按 owner 隔离，ADR-025）。
+        [HttpGet("apps/{appId:long}/icon")]
+        [EndpointName("getUserAppIcon")]
+        public async Task<IActionResult> GetAppIcon(string username, long appId)
+        {
+            var user = await ResolveVisibleAsync(username);
+            if (user == null) return NotFound();
+
+            var iconData = await appService.GetIconAsync(user.Id, appId);
+            if (iconData == null) return NotFound();
+
+            return File(iconData, "image/png");
         }
 
         [HttpGet("devices/{deviceId:long}/status")]
         [EndpointName("getUserDeviceStatus")]
         public async Task<ActionResult<DeviceStatusResponse>> GetDeviceStatus(string username, long deviceId)
         {
-            var user = await userService.ResolveByUsernameAsync(username);
+            var user = await ResolveVisibleAsync(username);
             if (user == null) return NotFound();
 
             var status = await deviceService.GetStatusAsync(deviceId, user.Id);
@@ -118,7 +168,7 @@ namespace Heartbeat.Server.Controllers
             [FromQuery] DateTimeOffset? start,
             [FromQuery] DateTimeOffset? end)
         {
-            var user = await userService.ResolveByUsernameAsync(username);
+            var user = await ResolveVisibleAsync(username);
             if (user == null) return NotFound();
 
             return await inputEventService.GetKeyFrequencyAsync(user.Id, deviceId, start, end);

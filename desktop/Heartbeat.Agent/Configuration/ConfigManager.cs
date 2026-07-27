@@ -34,29 +34,16 @@ namespace Heartbeat.Agent.Configuration
         }
 
         /// <summary>
-        /// 环境变量：若设置，覆盖 ApiBaseUrl（仅本地端到端验证用，不落盘）。
-        /// 只覆盖上传目标；AuthServiceBaseUrl 不动，鉴权仍走真实 Auth 平台。详见 README「本地端到端验证」。
-        /// </summary>
-        public const string ApiBaseUrlOverrideEnv = "HEARTBEAT_API_BASE_URL";
-
-        /// <summary>
         /// 获取当前配置快照（返回副本，防止外部修改）
         /// </summary>
         public AgentConfig Current
         {
             get
             {
-                AgentConfig snapshot;
                 lock (_lock)
                 {
-                    snapshot = Clone(_current);
+                    return Clone(_current);
                 }
-
-                var overrideUrl = Environment.GetEnvironmentVariable(ApiBaseUrlOverrideEnv);
-                if (!string.IsNullOrWhiteSpace(overrideUrl))
-                    snapshot.ApiBaseUrl = overrideUrl.TrimEnd('/');
-
-                return snapshot;
             }
         }
 
@@ -144,13 +131,12 @@ namespace Heartbeat.Agent.Configuration
         }
 
         /// <summary>
-        /// 归一化配置：去掉 BaseUrl 末尾的 '/'，避免与拼接逻辑产生 '//'。
+        /// 归一化配置：补齐反序列化可能产生的 null 集合。
         /// </summary>
         private static void Normalize(AgentConfig config)
         {
-            config.ApiBaseUrl = config.ApiBaseUrl.TrimEnd('/');
-            config.AuthServiceBaseUrl = config.AuthServiceBaseUrl.TrimEnd('/');
             config.AwayProcessNames ??= [];
+            config.Collectors ??= [];
         }
 
         /// <summary>
@@ -178,13 +164,20 @@ namespace Heartbeat.Agent.Configuration
         {
             return new AgentConfig
             {
-                ApiBaseUrl = source.ApiBaseUrl,
                 ApiKey = source.ApiKey,
-                AuthServiceBaseUrl = source.AuthServiceBaseUrl,
                 DeviceName = source.DeviceName,
                 UploadIntervalMinutes = source.UploadIntervalMinutes,
                 AwayProcessNames = [.. source.AwayProcessNames ?? []],
                 IngestPort = source.IngestPort,
+                Collectors = (source.Collectors ?? []).ToDictionary(
+                    kv => kv.Key,
+                    kv => new CollectorEntry
+                    {
+                        Enabled = kv.Value.Enabled,
+                        FlushPeriodMs = kv.Value.FlushPeriodMs,
+                        DeclarationJson = kv.Value.DeclarationJson,
+                        DeclarationVersion = kv.Value.DeclarationVersion,
+                    }),
             };
         }
 

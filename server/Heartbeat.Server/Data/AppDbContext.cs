@@ -11,6 +11,12 @@ namespace Heartbeat.Server.Data
         public DbSet<ActivitySegment> ActivitySegments => Set<ActivitySegment>();
         public DbSet<AppIcon> AppIcons => Set<AppIcon>();
         public DbSet<InputEvent> InputEvents => Set<InputEvent>();
+        public DbSet<Recap> Recaps => Set<Recap>();
+        public DbSet<Strand> Strands => Set<Strand>();
+        public DbSet<StrandMatcher> StrandMatchers => Set<StrandMatcher>();
+        public DbSet<MutedMatcher> MutedMatchers => Set<MutedMatcher>();
+        public DbSet<DailyQuestionSet> DailyQuestionSets => Set<DailyQuestionSet>();
+        public DbSet<CollectorDeclaration> CollectorDeclarations => Set<CollectorDeclaration>();
 
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
@@ -76,7 +82,8 @@ namespace Heartbeat.Server.Data
                     .WithMany()
                     .HasForeignKey(e => e.AppId);
 
-                entity.HasIndex(e => e.AppId)
+                // 写权按 owner 隔离（ADR-025）：一个 App 每个 owner 一份图标。
+                entity.HasIndex(e => new { e.OwnerId, e.AppId })
                     .IsUnique();
             });
 
@@ -96,6 +103,77 @@ namespace Heartbeat.Server.Data
 
                 // 计数查询走 (DeviceId, Timestamp)。
                 entity.HasIndex(e => new { e.DeviceId, e.Timestamp });
+            });
+            modelBuilder.Entity<Recap>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Model).HasMaxLength(128);
+                entity.Property(e => e.PromptHash).HasMaxLength(16);
+
+                // 缓存身份：一个 Owner 的一个日窗口一份（ADR-023 §4）。
+                entity.HasIndex(e => new { e.OwnerId, e.WindowStart })
+                    .IsUnique();
+            });
+
+            modelBuilder.Entity<Strand>(entity =>
+            {
+                // Id 为服务端生成的 UUIDv7。
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id).ValueGeneratedNever();
+
+                entity.Property(e => e.Name).HasMaxLength(256);
+
+                // 无 Id 提交的收敛键：按 (OwnerId, lower(Name)) 定位既有行——大小写变体不裂出第二条
+                // Strand（指纹分家）。函数式唯一索引在 NormalizeMatcherIdentity 迁移里以 SQL 建，
+                // EF 模型不声明（EF Core 不支持表达式索引）。
+
+                entity.HasMany(e => e.Members)
+                    .WithOne(m => m.Strand)
+                    .HasForeignKey(m => m.StrandId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<StrandMatcher>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Source).HasMaxLength(64);
+
+                // StepsJson 为规范化序列（MatcherNormalizer + MatcherCodec）：幂等按字符串相等收敛。
+                entity.HasIndex(e => new { e.StrandId, e.Source, e.StepsJson })
+                    .IsUnique();
+            });
+
+            modelBuilder.Entity<MutedMatcher>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Source).HasMaxLength(64);
+
+                entity.HasIndex(e => new { e.OwnerId, e.Source, e.StepsJson })
+                    .IsUnique();
+            });
+
+            modelBuilder.Entity<DailyQuestionSet>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                // 缓存身份：一个 Owner 的一个日窗口一份（与 Recap 同构，ADR-029 §4）。
+                entity.HasIndex(e => new { e.OwnerId, e.WindowStart })
+                    .IsUnique();
+            });
+
+            modelBuilder.Entity<CollectorDeclaration>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Source).HasMaxLength(64);
+                entity.Property(e => e.PayloadJson).HasColumnType("jsonb");
+
+                // 生效规则的读取键：每 Source 取 max(Version)；同 (Source, Version) 幂等覆盖（ADR-030 §4）。
+                entity.HasIndex(e => new { e.Source, e.Version })
+                    .IsUnique();
             });
         }
     }

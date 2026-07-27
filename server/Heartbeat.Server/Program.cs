@@ -1,6 +1,8 @@
 using Heartbeat.Server.Data;
 using Heartbeat.Server.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,18 +18,98 @@ builder.Services.AddScoped<DeviceService>();
 builder.Services.AddScoped<AppService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<InputEventService>();
+builder.Services.AddScoped<RecapService>();
+builder.Services.AddScoped<KnowledgeService>();
+builder.Services.AddScoped<DigestAssembler>();
+builder.Services.AddScoped<QuestionService>();
+builder.Services.Configure<RecapOptions>(builder.Configuration.GetSection(RecapOptions.Section));
+// LLM 传输一处实现（ADR-029 issue 03）：叙事与发问共享 ChatCompletionClient，generator 退成 prompt+解析。
+builder.Services.AddHttpClient<ChatCompletionClient>();
+builder.Services.AddScoped<IRecapGenerator, OpenAiCompatibleRecapGenerator>();
+builder.Services.AddScoped<IAskingGenerator, OpenAiCompatibleAskingGenerator>();
+builder.Services.AddHttpClient("AuthService", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["AuthService:Authority"]!);
+});
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddHealthChecks();
 
-// 鉴权已暂时禁用（用户要求 "暂时不需要登录功能"）。
-// 恢复时取消以下注释并添加对应 using：
-//   using Microsoft.AspNetCore.Authentication.JwtBearer;
-//   using Microsoft.IdentityModel.Tokens;
-// var authSection = builder.Configuration.GetSection("AuthService");
-// builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-//     .AddJwtBearer(options => { ... });
-// 同时恢复 app.UseAuthentication(); app.UseAuthorization(); 以及 controller 上的 [Authorize] 属性。
+// 上游 AuthService 签发两种令牌（同一 RSA 密钥/JWKS）：
+//   - OIDC access token（Web 用户，authorization code + PKCE）：typ=at+jwt，issuer 带尾斜杠
+//   - 会话 JWT（桌面 Agent 经 /api/v1/apikeys/exchange）：typ=JWT，issuer/audience 不带斜杠
+// 按 JWT header 的 typ 路由到各自的 scheme，分别精确校验。
+const string OidcScheme = "OidcBearer";
+const string SessionScheme = "SessionBearer";
+
+var authSection = builder.Configuration.GetSection("AuthService");
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = "TokenSelector";
+        options.DefaultChallengeScheme = "TokenSelector";
+    })
+    .AddPolicyScheme("TokenSelector", "Selects bearer scheme by JWT typ", options =>
+    {
+        options.ForwardDefaultSelector = context =>
+        {
+            var header = context.Request.Headers.Authorization.ToString();
+            var token = header.StartsWith("Bearer ") ? header["Bearer ".Length..] : null;
+            return JwtTypeSniffer.IsOidcAccessToken(token) ? OidcScheme : SessionScheme;
+        };
+    })
+    .AddJwtBearer(OidcScheme, options =>
+    {
+        options.Authority = authSection["Authority"];
+        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+        options.MapInboundClaims = false;
+
+        // 上游未注册任何 resource，OIDC access token 不带 aud；留配置项以便上游补上后开启
+        var oidcAudience = authSection["OidcAudience"];
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = !string.IsNullOrEmpty(oidcAudience),
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = authSection["OidcIssuer"],
+            ValidAudience = oidcAudience,
+            ValidTypes = ["at+jwt"],
+            NameClaimType = "preferred_username",
+            RoleClaimType = "role",
+        };
+
+        // aud 缺席的补偿：只接受签发给本应用客户端的令牌，
+        // 拒绝同一 IdP 签给其他下游应用的 access token
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = context =>
+            {
+                var expected = authSection["OidcClientId"];
+                var actual = context.Principal?.FindFirst("client_id")?.Value;
+                if (!string.IsNullOrEmpty(expected) && actual != expected)
+                    context.Fail("Access token was issued to a different client.");
+                return Task.CompletedTask;
+            },
+        };
+    })
+    .AddJwtBearer(SessionScheme, options =>
+    {
+        options.Authority = authSection["Authority"];
+        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+        options.MapInboundClaims = false;
+
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = authSection["Issuer"],
+            ValidAudience = authSection["Audience"],
+            NameClaimType = "preferred_username",
+            RoleClaimType = "role",
+        };
+    });
 
 var app = builder.Build();
 
@@ -41,10 +123,15 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+    // NormalizeMatcherIdentity 迁移的 C# 半边：StepsJson canonical 字节只有
+    // System.Text.Json 能产（见 KnowledgeIdentityBackfill 注释）。幂等，干净库空转。
+    await KnowledgeIdentityBackfill.RunAsync(db);
+    // AddCollectorDeclarations 的种子半边（同理走 C#）：system/browser v1 幂等补插（ADR-030 §4）。
+    await SeedDeclarations.SeedAsync(db);
 }
 
-// app.UseAuthentication(); // 暂时禁用
-// app.UseAuthorization();  // 暂时禁用
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 app.MapHealthChecks("/health");

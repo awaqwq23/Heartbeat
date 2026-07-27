@@ -52,6 +52,50 @@ export async function probeHub(port: number): Promise<boolean> {
 }
 
 /**
+ * GET /v1/collectors/browser/config（ADR-026 §2）：拉取本采集器在 hub 侧的配置。
+ * 顺带把自报的 flushPeriodMs 带上，hub 据此派生 Active 窗口（§3）；此调用也触发 hub 侧自动注册（§1）。
+ * 返回 null 表示拉取失败（hub 不在/身份不符）——调用方应保守视为"未停用"，不因拉取失败误停采集。
+ */
+export async function fetchCollectorConfig(
+  port: number,
+  source: string,
+  flushPeriodMs: number,
+): Promise<{ enabled: boolean } | null> {
+  try {
+    const url = `http://127.0.0.1:${port}/v1/collectors/${encodeURIComponent(source)}/config?flushPeriodMs=${flushPeriodMs}`
+    const res = await fetch(url, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) })
+    if (!res.ok) return null
+    const body = (await res.json()) as { enabled?: unknown }
+    return { enabled: body.enabled !== false }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * POST /v1/collectors/{source}/declaration（ADR-030 §3）：上报本采集器的观测深度表声明。
+ * hub 持久化并上行服务端；同版本重报 hub 侧幂等。返回是否确认送达（2xx）——
+ * 失败无害（下轮 flush 再试），调用方不必区分原因。
+ */
+export async function postDeclaration(port: number, declaration: object): Promise<boolean> {
+  try {
+    const source = (declaration as { source?: string }).source ?? ''
+    const res = await fetch(
+      `http://127.0.0.1:${port}/v1/collectors/${encodeURIComponent(source)}/declaration`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(declaration),
+        signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+      },
+    )
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+/**
  * 在 [basePort, basePort + PORT_RANGE) 内并发探测，返回首个（编号最小的）hub 端口；无则 null。
  * hub 端口被占时顺延到下一个，所以低编号优先即"hub 实际所在"。
  */

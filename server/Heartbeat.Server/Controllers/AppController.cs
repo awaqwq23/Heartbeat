@@ -1,11 +1,13 @@
 using Heartbeat.Core.DTOs.Apps;
 using Heartbeat.Server.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Heartbeat.Server.Controllers
 {
     [ApiController]
     [Route("api/v1/apps")]
+    [Authorize]
     public class AppController(AppService appService, ICurrentUserService currentUser) : ControllerBase
     {
         private readonly AppService _appService = appService;
@@ -19,17 +21,7 @@ namespace Heartbeat.Server.Controllers
             return await _appService.GetAppsForUserAsync(userId);
         }
 
-        [HttpGet("{appId:long}/icon")]
-        [EndpointName("getAppIcon")]
-        public async Task<IActionResult> GetIcon(long appId)
-        {
-            var iconData = await _appService.GetIconAsync(appId);
-            if (iconData == null)
-                return NotFound();
-
-            return File(iconData, "image/png");
-        }
-
+        [Authorize]
         [HttpPost("icon")]
         [EndpointName("uploadAppIcon")]
         public async Task<IActionResult> UploadIcon([FromBody] IconUploadRequest request)
@@ -43,7 +35,7 @@ namespace Heartbeat.Server.Controllers
             if (request.IconData.Length > 1024 * 1024)
                 return BadRequest("Icon data too large (max 1MB).");
 
-            await _appService.UploadIconAsync(request.AppName, request.IconData);
+            await _appService.UploadIconAsync(_currentUser.GetUserId(), request.AppName, request.IconData);
             return Ok();
         }
     }

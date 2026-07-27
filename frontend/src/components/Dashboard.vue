@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useHeartbeat } from '../composables/useHeartbeat'
+import { authStore } from '../stores/auth'
 import ActivityTimeline from './ActivityTimeline.vue'
+import RecapCard from './RecapCard.vue'
+import StrandQuestions from './StrandQuestions.vue'
 import StatusCards from './StatusCards.vue'
 import CurrentAppPanel from './CurrentAppPanel.vue'
 import TodayRanking from './TodayRanking.vue'
@@ -18,6 +21,10 @@ import {
 import DatePicker from './DatePicker.vue'
 
 const props = defineProps<{ username: string }>()
+
+const isOwnProfile = computed(() =>
+  authStore.isAuthenticated && authStore.username.value === props.username
+)
 
 const {
   devices,
@@ -99,10 +106,26 @@ const selectedApp = ref<{ appId: number; appName: string; totalSeconds: number }
           @click="includeAway = !includeAway"
         >{{ includeAway ? '含离开' : '不含离开' }}</button>
 
-        <a
-          href="/heartbeat/settings"
+        <RouterLink
+          v-if="isOwnProfile"
+          to="/get-started"
           class="glass-control px-3 py-1.5 text-[0.8rem] text-muted-foreground no-underline hover:text-foreground"
-        >设置</a>
+        >客户端</RouterLink>
+        <RouterLink
+          v-if="isOwnProfile"
+          to="/settings"
+          class="glass-control px-3 py-1.5 text-[0.8rem] text-muted-foreground no-underline hover:text-foreground"
+        >设置</RouterLink>
+        <button
+          v-if="authStore.isAuthenticated"
+          class="glass-control px-3 py-1.5 text-[0.8rem] text-muted-foreground hover:text-foreground"
+          @click="authStore.logout()"
+        >登出</button>
+        <button
+          v-else
+          class="glass-control px-3 py-1.5 text-[0.8rem] font-medium text-primary"
+          @click="authStore.redirectToLogin()"
+        >登录</button>
       </div>
     </header>
 
@@ -120,6 +143,7 @@ const selectedApp = ref<{ appId: number; appName: string; totalSeconds: number }
 
     <main>
       <StatusCards
+        :username="username"
         :isToday="isToday"
         :isAlive="isAlive"
         :lastSeenStr="lastSeenStr"
@@ -132,13 +156,28 @@ const selectedApp = ref<{ appId: number; appName: string; totalSeconds: number }
       <div class="grid grid-cols-1 gap-0 min-[900px]:grid-cols-[1fr_340px] min-[900px]:items-start min-[900px]:gap-5 min-[1200px]:grid-cols-[1fr_420px] min-[1200px]:gap-6">
         <div class="min-w-0">
           <CurrentAppPanel
+            :username="username"
             :isToday="isToday"
             :isAlive="isAlive"
             :currentApp="currentApp"
             :currentAppId="currentAppId"
           />
 
+          <!-- owner 可生成/重生成；公开访客只读已有缓存，不触发 LLM。 -->
+          <RecapCard
+            :selectedDate="selectedDate"
+            :username="username"
+            :canRegenerate="isOwnProfile"
+          />
+
+          <!-- Strand 提问面板（ADR-028）：owner-only，写知识 + 烧 LLM，无 public 版。 -->
+          <StrandQuestions
+            v-if="isOwnProfile"
+            :selectedDate="selectedDate"
+          />
+
           <ActivityTimeline
+            :username="username"
             :activeHours="activeHours"
             :usageData="usageData"
             :appNameMap="appNameMap"
@@ -151,12 +190,14 @@ const selectedApp = ref<{ appId: number; appName: string; totalSeconds: number }
 
         <div class="min-w-0 min-[900px]:sticky min-[900px]:top-4">
           <TodayRanking
+            :username="username"
             :appSummaries="appSummaries"
             :maxSeconds="maxSeconds"
             @select="selectedApp = $event"
           />
 
           <WeeklyChart
+            :username="username"
             :weeklyAppSummaries="weeklyAppSummaries"
             :weeklyTotalSeconds="weeklyTotalSeconds"
           />

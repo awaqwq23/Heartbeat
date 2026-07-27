@@ -1,4 +1,5 @@
-import { Client, ApiException, DailyReportResponse, WeeklyReportResponse, AppInfoResponse, DeviceInfoResponse, DeviceStatusResponse, AppUsageResponse, SegmentResponse } from './client'
+import { Client, ApiException, DailyRecapResponse, DailyReportResponse, WeeklyReportResponse, AppInfoResponse, DeviceInfoResponse, DeviceStatusResponse, AppUsageResponse, SegmentResponse, UpdateMySettingsRequest, DailyQuestionsResponse, BindStrandRequest, MuteMatcherRequest, StrandResponse, type IBindStrandRequest, type IMatcherDto } from './client'
+import { authStore } from '../stores/auth'
 
 // ===== Error model =====
 // 取数失败的归一形态。让取数策略层能区分"出错"(network/http/parse)与"没数据"(空数组)。
@@ -18,10 +19,37 @@ export function toApiError(e: unknown): ApiError {
 const BASE_URL = ''
 const API_BASE = '/api/v1'
 
-const client = new Client(BASE_URL)
+// ===== Auth-aware fetch wrapper =====
+const authHttp = {
+  async fetch(url: RequestInfo, init?: RequestInit): Promise<Response> {
+    const token = authStore.token.value
+    if (token) {
+      const headers = new Headers(init?.headers)
+      headers.set('Authorization', `Bearer ${token}`)
+      init = { ...init, headers }
+    }
+
+    let response = await fetch(url, init)
+
+    if (response.status === 401) {
+      const refreshed = await authStore.tryRefresh()
+      if (refreshed) {
+        const headers = new Headers(init?.headers)
+        headers.set('Authorization', `Bearer ${authStore.token.value}`)
+        response = await fetch(url, { ...init, headers })
+      } else {
+        authStore.clearAuth()
+      }
+    }
+
+    return response
+  },
+}
+
+const client = new Client(BASE_URL, authHttp)
 
 // Re-export generated types
-export type { AppInfoResponse, DeviceInfoResponse, DeviceStatusResponse, AppUsageResponse, DailyReportResponse, WeeklyReportResponse, SegmentResponse }
+export type { AppInfoResponse, DeviceInfoResponse, DeviceStatusResponse, AppUsageResponse, DailyRecapResponse, DailyReportResponse, WeeklyReportResponse, SegmentResponse }
 export type { AppDurationItem } from './client'
 
 export interface AppSummary {
@@ -84,49 +112,118 @@ export function getTimezoneLabel(): string {
   return `UTC${sign}${h}${m > 0 ? ':' + String(m).padStart(2, '0') : ''}`
 }
 
-// ===== API Functions =====
-// 登录功能已暂时禁用，所有请求不再携带 Bearer token。
-// 前端走 public-by-username 端点，无需认证。
+// ===== API Functions (authenticated, own data) =====
 
-export async function fetchDevices(username: string): Promise<DeviceInfoResponse[]> {
-  return client.getUserDevices(username)
+export async function fetchDevices(): Promise<DeviceInfoResponse[]> {
+  return client.getDevices()
 }
 
-export async function fetchApps(username: string): Promise<AppInfoResponse[]> {
-  return client.getUserApps(username)
+export async function fetchApps(): Promise<AppInfoResponse[]> {
+  return client.getApps()
 }
 
-export async function fetchDeviceStatus(username: string, deviceId: number): Promise<DeviceStatusResponse> {
-  return client.getUserDeviceStatus(username, deviceId)
+export async function fetchDeviceStatus(deviceId: number): Promise<DeviceStatusResponse> {
+  return client.getDevice(deviceId)
 }
 
-export async function fetchUsage(username: string, params: {
+export async function fetchUsage(params: {
   deviceId?: number
   start?: string
   end?: string
 }): Promise<AppUsageResponse[]> {
-  return client.getUserUsage(
-    username,
+  return client.getUsage(
     params.deviceId,
     params.start ? new Date(params.start) : undefined,
     params.end ? new Date(params.end) : undefined,
   )
 }
 
-// daily/weekly 报表不走生成的 client:时区偏移必须存活,见 toLocalDateTimeOffsetString。
-export async function fetchDailyReport(username: string, params: {
+// daily/weekly 报表(认证版)不走生成的 client:时区偏移必须存活,见 toLocalDateTimeOffsetString。
+export async function fetchDailyReport(params: {
   deviceId?: number
   date?: string
 }): Promise<DailyReportResponse> {
-  return reportRequest(u => fetch(u), `${API_BASE}/users/${username}/reports/daily?${reportDateParams(params)}`, DailyReportResponse.fromJS)
+  return reportRequest(u => authHttp.fetch(u), `${API_BASE}/reports/daily?${reportDateParams(params)}`, DailyReportResponse.fromJS)
 }
 
-export async function fetchWeeklyReport(username: string, params: {
+export async function fetchWeeklyReport(params: {
   deviceId?: number
   date?: string
 }): Promise<WeeklyReportResponse> {
-  return reportRequest(u => fetch(u), `${API_BASE}/users/${username}/reports/weekly?${reportDateParams(params)}`, WeeklyReportResponse.fromJS)
+  return reportRequest(u => authHttp.fetch(u), `${API_BASE}/reports/weekly?${reportDateParams(params)}`, WeeklyReportResponse.fromJS)
 }
+
+export function getIconUrl(username: string, appId: number): string {
+  return `${API_BASE}/users/${encodeURIComponent(username)}/apps/${appId}/icon`
+}
+
+// ===== Recap（ADR-023）=====
+// 认证版专属：叙事是私人记忆，且生成烧 LLM token，不提供 public 版。
+// date 与报表同理必须携带本地时区偏移，手拼请求（见 toLocalDateTimeOffsetString）。
+
+export async function fetchDailyRecap(params: { date?: string; force?: boolean }): Promise<DailyRecapResponse> {
+  const searchParams = new URLSearchParams()
+  if (params.date) searchParams.set('date', toLocalDateTimeOffsetString(params.date))
+  if (params.force) searchParams.set('force', 'true')
+  const res = await authHttp.fetch(`${API_BASE}/recaps/daily?${searchParams}`)
+  if (!res.ok) throw new ApiException('Recap request failed.', res.status, await res.text(), {}, null)
+  return DailyRecapResponse.fromJS(await res.json())
+}
+
+/** 公开 Recap 只读取 owner 已生成的缓存，匿名访问永不触发 LLM 生成。 */
+export async function fetchPublicDailyRecap(username: string, params: { date?: string }): Promise<DailyRecapResponse> {
+  const searchParams = new URLSearchParams()
+  if (params.date) searchParams.set('date', toLocalDateTimeOffsetString(params.date))
+  const res = await authHttp.fetch(`${API_BASE}/users/${encodeURIComponent(username)}/recaps/daily?${searchParams}`)
+  if (!res.ok) throw new ApiException('Public recap request failed.', res.status, await res.text(), {}, null)
+  return DailyRecapResponse.fromJS(await res.json())
+}
+
+// ===== Strand 知识层（ADR-028/029）=====
+// owner-only：确认写知识 + 发问烧 LLM token，无 public 版。
+// questions 的 date 与 recap 同理须携带本地时区偏移，手拼请求；bind/mute 走生成 client。
+
+export type { IMatcherDto, IMatcherStepDto, IQuestionItemResponse, IBindStrandRequest, IStrandResponse } from './client'
+
+export async function fetchDailyQuestions(params: { date?: string }): Promise<DailyQuestionsResponse> {
+  const searchParams = new URLSearchParams()
+  if (params.date) searchParams.set('date', toLocalDateTimeOffsetString(params.date))
+  const res = await authHttp.fetch(`${API_BASE}/knowledge/questions?${searchParams}`)
+  if (!res.ok) throw new ApiException('Questions request failed.', res.status, await res.text(), {}, null)
+  return DailyQuestionsResponse.fromJS(await res.json())
+}
+
+export async function bindStrand(req: IBindStrandRequest): Promise<StrandResponse> {
+  return client.bindStrand(BindStrandRequest.fromJS(req))
+}
+
+/** Mute 一个 Matcher（负向裁决）：别再就它发问。 */
+export async function muteMatcher(matcher: IMatcherDto): Promise<void> {
+  return client.muteMatcher(MuteMatcherRequest.fromJS({ matcher }))
+}
+
+// ===== Me（本人视角,ADR-025）=====
+// GET /me 是懒建供给的触发点:登录后必须调一次,否则 User 行不存在,
+// 本人的 /:username 看板会 404(可见性门查不到用户)。
+
+export interface MeSettings {
+  username: string
+  isPublic: boolean
+}
+
+export async function fetchMe(): Promise<MeSettings> {
+  const res = await client.getMe()
+  return { username: res.username ?? '', isPublic: res.isPublic ?? false }
+}
+
+export async function updateMySettings(isPublic: boolean): Promise<MeSettings> {
+  const res = await client.updateMySettings(UpdateMySettingsRequest.fromJS({ isPublic }))
+  return { username: res.username ?? '', isPublic: res.isPublic ?? false }
+}
+
+// ===== Public API Functions (no auth required, by username) =====
+// 统一走 NSwag 生成的 client 方法(响应类型由 OpenAPI schema 保证);
+// 唯二例外是 daily/weekly 报表——时区偏移必须存活,见 toLocalDateTimeOffsetString。
 
 export async function fetchPublicDevices(username: string): Promise<DeviceInfoResponse[]> {
   return client.getUserDevices(username)
@@ -140,14 +237,15 @@ export async function fetchPublicDailyReport(username: string, params: {
   deviceId?: number
   date?: string
 }): Promise<DailyReportResponse> {
-  return reportRequest(u => fetch(u), `${API_BASE}/users/${username}/reports/daily?${reportDateParams(params)}`, DailyReportResponse.fromJS)
+  // authHttp:可见性门（ADR-025）下本人看 private 看板靠 JWT 识别,裸 fetch 会 404
+  return reportRequest(u => authHttp.fetch(u), `${API_BASE}/users/${username}/reports/daily?${reportDateParams(params)}`, DailyReportResponse.fromJS)
 }
 
 export async function fetchPublicWeeklyReport(username: string, params: {
   deviceId?: number
   date?: string
 }): Promise<WeeklyReportResponse> {
-  return reportRequest(u => fetch(u), `${API_BASE}/users/${username}/reports/weekly?${reportDateParams(params)}`, WeeklyReportResponse.fromJS)
+  return reportRequest(u => authHttp.fetch(u), `${API_BASE}/users/${username}/reports/weekly?${reportDateParams(params)}`, WeeklyReportResponse.fromJS)
 }
 
 export async function fetchPublicDeviceStatus(username: string, deviceId: number): Promise<DeviceStatusResponse> {
@@ -196,8 +294,4 @@ export async function fetchPublicKeyFrequency(username: string, params: {
     params.end ? new Date(params.end) : undefined,
   )
   return normalizeKeyFrequency(res)
-}
-
-export function getIconUrl(appId: number): string {
-  return `${API_BASE}/apps/${appId}/icon`
 }

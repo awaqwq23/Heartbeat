@@ -102,15 +102,85 @@ namespace Heartbeat.Server.Migrations
                         .IsRequired()
                         .HasColumnType("bytea");
 
+                    b.Property<string>("OwnerId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AppId")
+                    b.HasIndex("AppId");
+
+                    b.HasIndex("OwnerId", "AppId")
                         .IsUnique();
 
                     b.ToTable("AppIcons");
+                });
+
+            modelBuilder.Entity("Heartbeat.Server.Entities.CollectorDeclaration", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset>("ReportedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Source", "Version")
+                        .IsUnique();
+
+                    b.ToTable("CollectorDeclarations");
+                });
+
+            modelBuilder.Entity("Heartbeat.Server.Entities.DailyQuestionSet", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("GeneratedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("OwnerId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("SegmentWatermark")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("WindowStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId", "WindowStart")
+                        .IsUnique();
+
+                    b.ToTable("DailyQuestionSets");
                 });
 
             modelBuilder.Entity("Heartbeat.Server.Entities.Device", b =>
@@ -172,10 +242,145 @@ namespace Heartbeat.Server.Migrations
                     b.ToTable("InputEvents");
                 });
 
+            modelBuilder.Entity("Heartbeat.Server.Entities.MutedMatcher", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("OwnerId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("StepsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId", "Source", "StepsJson")
+                        .IsUnique();
+
+                    b.ToTable("MutedMatchers");
+                });
+
+            modelBuilder.Entity("Heartbeat.Server.Entities.Recap", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("GeneratedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Narrative")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OwnerId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PromptHash")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTimeOffset>("SegmentWatermark")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("WindowStart")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId", "WindowStart")
+                        .IsUnique();
+
+                    b.ToTable("Recaps");
+                });
+
+            modelBuilder.Entity("Heartbeat.Server.Entities.Strand", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Gloss")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("OwnerId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Strands");
+                });
+
+            modelBuilder.Entity("Heartbeat.Server.Entities.StrandMatcher", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("StepsJson")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("StrandId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StrandId", "Source", "StepsJson")
+                        .IsUnique();
+
+                    b.ToTable("StrandMatchers");
+                });
+
             modelBuilder.Entity("Heartbeat.Server.Entities.User", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("text");
+
+                    b.Property<bool>("IsPublic")
+                        .HasColumnType("boolean");
 
                     b.Property<DateTimeOffset>("LastSeenAt")
                         .HasColumnType("timestamp with time zone");
@@ -229,6 +434,22 @@ namespace Heartbeat.Server.Migrations
                         .IsRequired();
 
                     b.Navigation("Device");
+                });
+
+            modelBuilder.Entity("Heartbeat.Server.Entities.StrandMatcher", b =>
+                {
+                    b.HasOne("Heartbeat.Server.Entities.Strand", "Strand")
+                        .WithMany("Members")
+                        .HasForeignKey("StrandId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Strand");
+                });
+
+            modelBuilder.Entity("Heartbeat.Server.Entities.Strand", b =>
+                {
+                    b.Navigation("Members");
                 });
 #pragma warning restore 612, 618
         }

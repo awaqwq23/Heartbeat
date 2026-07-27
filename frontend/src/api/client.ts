@@ -64,42 +64,6 @@ export class Client {
     /**
      * @return OK
      */
-    getAppIcon(appId: number): Promise<void> {
-        let url_ = this.baseUrl + "/api/v1/apps/{appId}/icon";
-        if (appId === undefined || appId === null)
-            throw new globalThis.Error("The parameter 'appId' must be defined.");
-        url_ = url_.replace("{appId}", encodeURIComponent("" + appId));
-        url_ = url_.replace(/[?&]$/, "");
-
-        let options_: RequestInit = {
-            method: "GET",
-            headers: {
-            }
-        };
-
-        return this.http.fetch(url_, options_).then((_response: Response) => {
-            return this.processGetAppIcon(_response);
-        });
-    }
-
-    protected processGetAppIcon(response: Response): Promise<void> {
-        const status = response.status;
-        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
-        if (status === 200) {
-            return response.text().then((_responseText) => {
-            return;
-            });
-        } else if (status !== 200 && status !== 204) {
-            return response.text().then((_responseText) => {
-            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
-            });
-        }
-        return Promise.resolve<void>(null as any);
-    }
-
-    /**
-     * @return OK
-     */
     uploadAppIcon(body: IconUploadRequest): Promise<void> {
         let url_ = this.baseUrl + "/api/v1/apps/icon";
         url_ = url_.replace(/[?&]$/, "");
@@ -345,6 +309,204 @@ export class Client {
     }
 
     /**
+     * @param date (optional)
+     * @return OK
+     */
+    getDailyQuestions(date: Date | undefined): Promise<DailyQuestionsResponse> {
+        let url_ = this.baseUrl + "/api/v1/knowledge/questions?";
+        if (date === null)
+            throw new globalThis.Error("The parameter 'date' cannot be null.");
+        else if (date !== undefined)
+            url_ += "date=" + encodeURIComponent(date ? "" + date.toISOString() : "") + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetDailyQuestions(_response);
+        });
+    }
+
+    protected processGetDailyQuestions(response: Response): Promise<DailyQuestionsResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = DailyQuestionsResponse.fromJS(resultData200);
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DailyQuestionsResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    bindStrand(body: BindStrandRequest): Promise<StrandResponse> {
+        let url_ = this.baseUrl + "/api/v1/knowledge/strands";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processBindStrand(_response);
+        });
+    }
+
+    protected processBindStrand(response: Response): Promise<StrandResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = StrandResponse.fromJS(resultData200);
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<StrandResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    muteMatcher(body: MuteMatcherRequest): Promise<void> {
+        let url_ = this.baseUrl + "/api/v1/knowledge/mutes";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processMuteMatcher(_response);
+        });
+    }
+
+    protected processMuteMatcher(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    getMe(): Promise<MeResponse> {
+        let url_ = this.baseUrl + "/api/v1/me";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetMe(_response);
+        });
+    }
+
+    protected processGetMe(response: Response): Promise<MeResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = MeResponse.fromJS(resultData200);
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<MeResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    updateMySettings(body: UpdateMySettingsRequest): Promise<MeResponse> {
+        let url_ = this.baseUrl + "/api/v1/me/settings";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUpdateMySettings(_response);
+        });
+    }
+
+    protected processUpdateMySettings(response: Response): Promise<MeResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = MeResponse.fromJS(resultData200);
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<MeResponse>(null as any);
+    }
+
+    /**
      * @return OK
      */
     getUserDevices(username: string): Promise<DeviceInfoResponse[]> {
@@ -393,7 +555,7 @@ export class Client {
 
     /**
      * @param deviceId (optional) 
-     * @param date (optional) 
+     * @param date (optional)
      * @return OK
      */
     getUserDailyReport(username: string, deviceId: number | undefined, date: Date | undefined): Promise<DailyReportResponse> {
@@ -489,6 +651,51 @@ export class Client {
             });
         }
         return Promise.resolve<WeeklyReportResponse>(null as any);
+    }
+
+    /**
+     * @param date (optional) 
+     * @return OK
+     */
+    getUserDailyRecap(username: string, date: Date | undefined): Promise<DailyRecapResponse> {
+        let url_ = this.baseUrl + "/api/v1/users/{username}/recaps/daily?";
+        if (username === undefined || username === null)
+            throw new globalThis.Error("The parameter 'username' must be defined.");
+        url_ = url_.replace("{username}", encodeURIComponent("" + username));
+        if (date === null)
+            throw new globalThis.Error("The parameter 'date' cannot be null.");
+        else if (date !== undefined)
+            url_ += "date=" + encodeURIComponent(date ? "" + date.toISOString() : "") + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetUserDailyRecap(_response);
+        });
+    }
+
+    protected processGetUserDailyRecap(response: Response): Promise<DailyRecapResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = DailyRecapResponse.fromJS(resultData200);
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DailyRecapResponse>(null as any);
     }
 
     /**
@@ -675,6 +882,45 @@ export class Client {
     /**
      * @return OK
      */
+    getUserAppIcon(username: string, appId: number): Promise<void> {
+        let url_ = this.baseUrl + "/api/v1/users/{username}/apps/{appId}/icon";
+        if (username === undefined || username === null)
+            throw new globalThis.Error("The parameter 'username' must be defined.");
+        url_ = url_.replace("{username}", encodeURIComponent("" + username));
+        if (appId === undefined || appId === null)
+            throw new globalThis.Error("The parameter 'appId' must be defined.");
+        url_ = url_.replace("{appId}", encodeURIComponent("" + appId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetUserAppIcon(_response);
+        });
+    }
+
+    protected processGetUserAppIcon(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     getUserDeviceStatus(username: string, deviceId: number): Promise<DeviceStatusResponse> {
         let url_ = this.baseUrl + "/api/v1/users/{username}/devices/{deviceId}/status";
         if (username === undefined || username === null)
@@ -768,6 +1014,53 @@ export class Client {
             });
         }
         return Promise.resolve<KeyFrequencyResponse>(null as any);
+    }
+
+    /**
+     * @param date (optional)
+     * @param force (optional)
+     * @return OK
+     */
+    getDailyRecap(date: Date | undefined, force: boolean | undefined): Promise<DailyRecapResponse> {
+        let url_ = this.baseUrl + "/api/v1/recaps/daily?";
+        if (date === null)
+            throw new globalThis.Error("The parameter 'date' cannot be null.");
+        else if (date !== undefined)
+            url_ += "date=" + encodeURIComponent(date ? "" + date.toISOString() : "") + "&";
+        if (force === null)
+            throw new globalThis.Error("The parameter 'force' cannot be null.");
+        else if (force !== undefined)
+            url_ += "force=" + encodeURIComponent("" + force) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetDailyRecap(_response);
+        });
+    }
+
+    protected processGetDailyRecap(response: Response): Promise<DailyRecapResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            let resultData200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver);
+            result200 = DailyRecapResponse.fromJS(resultData200);
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DailyRecapResponse>(null as any);
     }
 
     /**
@@ -1213,6 +1506,210 @@ export interface IAppUsageResponse {
     startTime?: Date;
     endTime?: Date;
     durationSeconds?: number;
+
+    [key: string]: any;
+}
+
+export class BindStrandRequest implements IBindStrandRequest {
+    id?: string | undefined;
+    name?: string;
+    gloss?: string;
+    members?: MatcherDto[];
+
+    [key: string]: any;
+
+    constructor(data?: IBindStrandRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            for (var property in _data) {
+                if (_data.hasOwnProperty(property))
+                    this[property] = _data[property];
+            }
+            this.id = _data["id"];
+            this.name = _data["name"];
+            this.gloss = _data["gloss"];
+            if (Array.isArray(_data["members"])) {
+                this.members = [] as any;
+                for (let item of _data["members"])
+                    this.members!.push(MatcherDto.fromJS(item));
+            }
+        }
+    }
+
+    static fromJS(data: any): BindStrandRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new BindStrandRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        for (var property in this) {
+            if (this.hasOwnProperty(property))
+                data[property] = this[property];
+        }
+        data["id"] = this.id;
+        data["name"] = this.name;
+        data["gloss"] = this.gloss;
+        if (Array.isArray(this.members)) {
+            data["members"] = [];
+            for (let item of this.members)
+                data["members"].push(item ? item.toJSON() : undefined as any);
+        }
+        return data;
+    }
+}
+
+export interface IBindStrandRequest {
+    id?: string | undefined;
+    name?: string;
+    gloss?: string;
+    members?: MatcherDto[];
+
+    [key: string]: any;
+}
+
+export class DailyQuestionsResponse implements IDailyQuestionsResponse {
+    questions?: QuestionItemResponse[];
+    readingLabels?: { [key: string]: string; };
+
+    [key: string]: any;
+
+    constructor(data?: IDailyQuestionsResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            for (var property in _data) {
+                if (_data.hasOwnProperty(property))
+                    this[property] = _data[property];
+            }
+            if (Array.isArray(_data["questions"])) {
+                this.questions = [] as any;
+                for (let item of _data["questions"])
+                    this.questions!.push(QuestionItemResponse.fromJS(item));
+            }
+            if (_data["readingLabels"]) {
+                this.readingLabels = {} as any;
+                for (let key in _data["readingLabels"]) {
+                    if (_data["readingLabels"].hasOwnProperty(key))
+                        (<any>this.readingLabels)![key] = _data["readingLabels"][key];
+                }
+            }
+        }
+    }
+
+    static fromJS(data: any): DailyQuestionsResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new DailyQuestionsResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        for (var property in this) {
+            if (this.hasOwnProperty(property))
+                data[property] = this[property];
+        }
+        if (Array.isArray(this.questions)) {
+            data["questions"] = [];
+            for (let item of this.questions)
+                data["questions"].push(item ? item.toJSON() : undefined as any);
+        }
+        if (this.readingLabels) {
+            data["readingLabels"] = {};
+            for (let key in this.readingLabels) {
+                if (this.readingLabels.hasOwnProperty(key))
+                    (<any>data["readingLabels"])[key] = (<any>this.readingLabels)[key];
+            }
+        }
+        return data;
+    }
+}
+
+export interface IDailyQuestionsResponse {
+    questions?: QuestionItemResponse[];
+    readingLabels?: { [key: string]: string; };
+
+    [key: string]: any;
+}
+
+export class DailyRecapResponse implements IDailyRecapResponse {
+    date?: string;
+    isEmpty?: boolean;
+    narrative?: string | undefined;
+    generatedAt?: Date | undefined;
+    model?: string | undefined;
+
+    [key: string]: any;
+
+    constructor(data?: IDailyRecapResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            for (var property in _data) {
+                if (_data.hasOwnProperty(property))
+                    this[property] = _data[property];
+            }
+            this.date = _data["date"];
+            this.isEmpty = _data["isEmpty"];
+            this.narrative = _data["narrative"];
+            this.generatedAt = _data["generatedAt"] ? new Date(_data["generatedAt"].toString()) : undefined as any;
+            this.model = _data["model"];
+        }
+    }
+
+    static fromJS(data: any): DailyRecapResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new DailyRecapResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        for (var property in this) {
+            if (this.hasOwnProperty(property))
+                data[property] = this[property];
+        }
+        data["date"] = this.date;
+        data["isEmpty"] = this.isEmpty;
+        data["narrative"] = this.narrative;
+        data["generatedAt"] = this.generatedAt ? this.generatedAt.toISOString() : undefined as any;
+        data["model"] = this.model;
+        return data;
+    }
+}
+
+export interface IDailyRecapResponse {
+    date?: string;
+    isEmpty?: boolean;
+    narrative?: string | undefined;
+    generatedAt?: Date | undefined;
+    model?: string | undefined;
 
     [key: string]: any;
 }
@@ -1825,6 +2322,289 @@ export interface IKeyFrequencyResponse {
     [key: string]: any;
 }
 
+export class MatcherDto implements IMatcherDto {
+    source?: string;
+    steps?: MatcherStepDto[];
+
+    [key: string]: any;
+
+    constructor(data?: IMatcherDto) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            for (var property in _data) {
+                if (_data.hasOwnProperty(property))
+                    this[property] = _data[property];
+            }
+            this.source = _data["source"];
+            if (Array.isArray(_data["steps"])) {
+                this.steps = [] as any;
+                for (let item of _data["steps"])
+                    this.steps!.push(MatcherStepDto.fromJS(item));
+            }
+        }
+    }
+
+    static fromJS(data: any): MatcherDto {
+        data = typeof data === 'object' ? data : {};
+        let result = new MatcherDto();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        for (var property in this) {
+            if (this.hasOwnProperty(property))
+                data[property] = this[property];
+        }
+        data["source"] = this.source;
+        if (Array.isArray(this.steps)) {
+            data["steps"] = [];
+            for (let item of this.steps)
+                data["steps"].push(item ? item.toJSON() : undefined as any);
+        }
+        return data;
+    }
+}
+
+export interface IMatcherDto {
+    source?: string;
+    steps?: MatcherStepDto[];
+
+    [key: string]: any;
+}
+
+export class MatcherStepDto implements IMatcherStepDto {
+    reading?: string;
+    op?: string;
+    value?: string;
+
+    [key: string]: any;
+
+    constructor(data?: IMatcherStepDto) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            for (var property in _data) {
+                if (_data.hasOwnProperty(property))
+                    this[property] = _data[property];
+            }
+
+            this.reading = _data["reading"];
+            this.op = _data["op"];
+            this.value = _data["value"];
+        }
+    }
+
+    static fromJS(data: any): MatcherStepDto {
+        data = typeof data === 'object' ? data : {};
+        let result = new MatcherStepDto();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        for (var property in this) {
+            if (this.hasOwnProperty(property))
+                data[property] = this[property];
+        }
+
+        data["reading"] = this.reading;
+        data["op"] = this.op;
+        data["value"] = this.value;
+        return data;
+    }
+}
+
+export interface IMatcherStepDto {
+
+    reading?: string;
+    op?: string;
+    value?: string;
+
+    [key: string]: any;
+}
+
+export class MeResponse implements IMeResponse {
+    username?: string;
+    isPublic?: boolean;
+
+    [key: string]: any;
+
+    constructor(data?: IMeResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            for (var property in _data) {
+                if (_data.hasOwnProperty(property))
+                    this[property] = _data[property];
+            }
+            this.username = _data["username"];
+            this.isPublic = _data["isPublic"];
+        }
+    }
+
+    static fromJS(data: any): MeResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new MeResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        for (var property in this) {
+            if (this.hasOwnProperty(property))
+                data[property] = this[property];
+        }
+        data["username"] = this.username;
+        data["isPublic"] = this.isPublic;
+        return data;
+    }
+}
+
+export interface IMeResponse {
+    username?: string;
+    isPublic?: boolean;
+
+    [key: string]: any;
+}
+
+export class MuteMatcherRequest implements IMuteMatcherRequest {
+    matcher?: MatcherDto;
+
+    [key: string]: any;
+
+    constructor(data?: IMuteMatcherRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            for (var property in _data) {
+                if (_data.hasOwnProperty(property))
+                    this[property] = _data[property];
+            }
+            this.matcher = _data["matcher"] ? MatcherDto.fromJS(_data["matcher"]) : undefined as any;
+        }
+    }
+
+    static fromJS(data: any): MuteMatcherRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new MuteMatcherRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        for (var property in this) {
+            if (this.hasOwnProperty(property))
+                data[property] = this[property];
+        }
+        data["matcher"] = this.matcher ? this.matcher.toJSON() : undefined as any;
+        return data;
+    }
+}
+
+export interface IMuteMatcherRequest {
+    matcher?: MatcherDto;
+
+    [key: string]: any;
+}
+
+export class QuestionItemResponse implements IQuestionItemResponse {
+    matcher?: MatcherDto;
+    question?: string;
+    evidence?: string;
+    proposedName?: string;
+    proposedGloss?: string;
+
+    [key: string]: any;
+
+    constructor(data?: IQuestionItemResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            for (var property in _data) {
+                if (_data.hasOwnProperty(property))
+                    this[property] = _data[property];
+            }
+            this.matcher = _data["matcher"] ? MatcherDto.fromJS(_data["matcher"]) : undefined as any;
+            this.question = _data["question"];
+            this.evidence = _data["evidence"];
+            this.proposedName = _data["proposedName"];
+            this.proposedGloss = _data["proposedGloss"];
+        }
+    }
+
+    static fromJS(data: any): QuestionItemResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new QuestionItemResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        for (var property in this) {
+            if (this.hasOwnProperty(property))
+                data[property] = this[property];
+        }
+        data["matcher"] = this.matcher ? this.matcher.toJSON() : undefined as any;
+        data["question"] = this.question;
+        data["evidence"] = this.evidence;
+        data["proposedName"] = this.proposedName;
+        data["proposedGloss"] = this.proposedGloss;
+        return data;
+    }
+}
+
+export interface IQuestionItemResponse {
+    matcher?: MatcherDto;
+    question?: string;
+    evidence?: string;
+    proposedName?: string;
+    proposedGloss?: string;
+
+    [key: string]: any;
+}
+
 export class SegmentResponse implements ISegmentResponse {
     id?: string;
     source?: string;
@@ -1961,6 +2741,130 @@ export class SegmentUploadRequest implements ISegmentUploadRequest {
 
 export interface ISegmentUploadRequest {
     segments?: ActivitySegmentItem[];
+
+    [key: string]: any;
+}
+
+export class StrandResponse implements IStrandResponse {
+    id?: string;
+    name?: string;
+    gloss?: string;
+    members?: MatcherDto[];
+    createdAt?: Date;
+    updatedAt?: Date;
+
+    [key: string]: any;
+
+    constructor(data?: IStrandResponse) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            for (var property in _data) {
+                if (_data.hasOwnProperty(property))
+                    this[property] = _data[property];
+            }
+            this.id = _data["id"];
+            this.name = _data["name"];
+            this.gloss = _data["gloss"];
+            if (Array.isArray(_data["members"])) {
+                this.members = [] as any;
+                for (let item of _data["members"])
+                    this.members!.push(MatcherDto.fromJS(item));
+            }
+            this.createdAt = _data["createdAt"] ? new Date(_data["createdAt"].toString()) : undefined as any;
+            this.updatedAt = _data["updatedAt"] ? new Date(_data["updatedAt"].toString()) : undefined as any;
+        }
+    }
+
+    static fromJS(data: any): StrandResponse {
+        data = typeof data === 'object' ? data : {};
+        let result = new StrandResponse();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        for (var property in this) {
+            if (this.hasOwnProperty(property))
+                data[property] = this[property];
+        }
+        data["id"] = this.id;
+        data["name"] = this.name;
+        data["gloss"] = this.gloss;
+        if (Array.isArray(this.members)) {
+            data["members"] = [];
+            for (let item of this.members)
+                data["members"].push(item ? item.toJSON() : undefined as any);
+        }
+        data["createdAt"] = this.createdAt ? this.createdAt.toISOString() : undefined as any;
+        data["updatedAt"] = this.updatedAt ? this.updatedAt.toISOString() : undefined as any;
+        return data;
+    }
+}
+
+export interface IStrandResponse {
+    id?: string;
+    name?: string;
+    gloss?: string;
+    members?: MatcherDto[];
+    createdAt?: Date;
+    updatedAt?: Date;
+
+    [key: string]: any;
+}
+
+export class UpdateMySettingsRequest implements IUpdateMySettingsRequest {
+    isPublic?: boolean;
+
+    [key: string]: any;
+
+    constructor(data?: IUpdateMySettingsRequest) {
+        if (data) {
+            for (var property in data) {
+                if (data.hasOwnProperty(property))
+                    (this as any)[property] = (data as any)[property];
+            }
+        }
+    }
+
+    init(_data?: any) {
+        if (_data) {
+            for (var property in _data) {
+                if (_data.hasOwnProperty(property))
+                    this[property] = _data[property];
+            }
+            this.isPublic = _data["isPublic"];
+        }
+    }
+
+    static fromJS(data: any): UpdateMySettingsRequest {
+        data = typeof data === 'object' ? data : {};
+        let result = new UpdateMySettingsRequest();
+        result.init(data);
+        return result;
+    }
+
+    toJSON(data?: any) {
+        data = typeof data === 'object' ? data : {};
+        for (var property in this) {
+            if (this.hasOwnProperty(property))
+                data[property] = this[property];
+        }
+        data["isPublic"] = this.isPublic;
+        return data;
+    }
+}
+
+export interface IUpdateMySettingsRequest {
+    isPublic?: boolean;
 
     [key: string]: any;
 }
