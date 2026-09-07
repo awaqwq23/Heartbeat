@@ -39,7 +39,7 @@ public sealed class UpdateService : IDisposable
         TimeSpan.FromMinutes(2),
         TimeSpan.FromMinutes(8),
     ];
-    private const string RepoUrl = "https://github.com/shenxianovo/Heartbeat";
+    private const string RepoUrl = "https://github.com/awaqwq23/Heartbeat";
 
     private readonly UpdateManager _updateManager;
     private readonly object _gate = new();

@@ -75,7 +75,6 @@ namespace Heartbeat.Agent.Http
 
             if (string.IsNullOrEmpty(config.ApiKey))
             {
-                Log.Warning("API key is not configured; skipping token exchange.");
                 return null;
             }
 

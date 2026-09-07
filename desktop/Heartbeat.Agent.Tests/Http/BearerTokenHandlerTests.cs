@@ -1,6 +1,7 @@
 using Heartbeat.Agent.Configuration;
 using Heartbeat.Agent.Http;
 using Heartbeat.Agent.Models;
+using System.Net.Http.Headers;
 
 namespace Heartbeat.Agent.Tests.Http;
 
@@ -54,6 +55,48 @@ public class BearerTokenHandlerTests : IDisposable
         Assert.Equal("我的电脑", Uri.UnescapeDataString(header));
     }
 
+    [Fact]
+    public async Task SendAsync_NoApiKey_SkipsTokenExchangeAndSendsDeviceIdentity()
+    {
+        var configManager = CreateConfigManager(new AgentConfig { ApiKey = "", DeviceName = "desktop-2" });
+        var tokenProvider = new FakeTokenProvider("jwt");
+        var capturingHandler = new CapturingHandler();
+        var handler = new BearerTokenHandler(configManager, tokenProvider)
+        {
+            InnerHandler = capturingHandler
+        };
+
+        var client = new HttpClient(handler);
+        await client.PostAsync("http://localhost/test", null);
+
+        var request = capturingHandler.CapturedRequest!;
+        Assert.Equal(0, tokenProvider.GetTokenCallCount);
+        Assert.Null(request.Headers.Authorization);
+        Assert.False(string.IsNullOrWhiteSpace(
+            request.Headers.GetValues("X-Hardware-Id").Single()));
+        Assert.Equal("desktop-2", Uri.UnescapeDataString(
+            request.Headers.GetValues("X-Device-Name").Single()));
+    }
+
+    [Fact]
+    public async Task SendAsync_ApiKeyConfigured_AddsBearerToken()
+    {
+        var configManager = CreateConfigManager(new AgentConfig { ApiKey = "configured" });
+        var tokenProvider = new FakeTokenProvider("jwt");
+        var capturingHandler = new CapturingHandler();
+        var handler = new BearerTokenHandler(configManager, tokenProvider)
+        {
+            InnerHandler = capturingHandler
+        };
+
+        var client = new HttpClient(handler);
+        await client.GetAsync("http://localhost/test");
+
+        Assert.Equal(1, tokenProvider.GetTokenCallCount);
+        Assert.Equal(new AuthenticationHeaderValue("Bearer", "jwt"),
+            capturingHandler.CapturedRequest!.Headers.Authorization);
+    }
+
     private ConfigManager CreateConfigManager(AgentConfig config)
     {
         var tempPath = Path.Combine(Path.GetTempPath(), $"heartbeat-test-{Guid.NewGuid()}.json");
@@ -69,8 +112,13 @@ public class BearerTokenHandlerTests : IDisposable
 
     private class FakeTokenProvider(string token) : IAccessTokenProvider
     {
+        public int GetTokenCallCount { get; private set; }
+
         public Task<string?> GetAccessTokenAsync(CancellationToken ct = default)
-            => Task.FromResult<string?>(token);
+        {
+            GetTokenCallCount++;
+            return Task.FromResult<string?>(token);
+        }
         public void InvalidateToken() { }
     }
 

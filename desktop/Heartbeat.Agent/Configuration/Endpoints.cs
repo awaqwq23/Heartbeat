@@ -9,12 +9,16 @@ namespace Heartbeat.Agent.Configuration
     public static class Endpoints
     {
         public const string ApiBaseUrlOverrideEnv = "HEARTBEAT_API_BASE_URL";
+        public const string AuthServiceBaseUrlOverrideEnv = "HEARTBEAT_AUTH_BASE_URL";
 
         public static string ApiBaseUrl { get; } =
             Environment.GetEnvironmentVariable(ApiBaseUrlOverrideEnv) is { } o && !string.IsNullOrWhiteSpace(o)
                 ? o.Trim().TrimEnd('/')
-                : "https://heartbeat.shenxianovo.com";
+                : "https://awaqwq233.com/heartbeat";
 
-        public static string AuthServiceBaseUrl { get; } = "https://auth.shenxianovo.com";
+        public static string AuthServiceBaseUrl { get; } =
+            Environment.GetEnvironmentVariable(AuthServiceBaseUrlOverrideEnv) is { } o && !string.IsNullOrWhiteSpace(o)
+                ? o.Trim().TrimEnd('/')
+                : "https://auth.shenxianovo.com";
     }
 }
